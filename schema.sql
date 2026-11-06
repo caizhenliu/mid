@@ -1,0 +1,9 @@
+CREATE TABLE IF NOT EXISTS articles (
+    id SERIAL PRIMARY KEY,
+    author_name VARCHAR(100) NOT NULL,
+    category VARCHAR(50) NOT NULL,
+    title VARCHAR(255) NOT NULL,
+    content TEXT NOT NULL,
+    status VARCHAR(20) DEFAULT '編輯中',
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);

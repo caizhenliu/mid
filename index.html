@@ -4,22 +4,62 @@
   <meta charset="UTF-8">
   <title>投稿審查系統</title>
   <style>
-    body { font-family: -apple-system, sans-serif; max-width: 900px; margin: 30px auto; padding: 0 20px; background: #f8f9fa; color: #333; }
-    .nav-tabs { display: flex; gap: 10px; margin-bottom: 20px; border-bottom: 2px solid #ccc; padding-bottom: 10px; }
-    .tab-btn { padding: 10px 20px; cursor: pointer; border: none; background: #e9ecef; font-weight: bold; border-radius: 4px; }
-    .tab-btn.active { background: #0d6efd; color: white; }
-    .card { background: white; padding: 20px; border-radius: 8px; border: 1px solid #dee2e6; margin-bottom: 15px; box-shadow: 0 2px 4px rgba(0,0,0,0.05); }
-    input, textarea, select { width: 100%; padding: 8px; margin: 8px 0 16px 0; border: 1px solid #ccc; border-radius: 4px; box-sizing: border-box; }
-    button { padding: 8px 14px; border: none; border-radius: 4px; cursor: pointer; font-weight: bold; margin-right: 6px; }
-    .btn-primary { background: #0d6efd; color: white; }
-    .btn-success { background: #198754; color: white; }
-    .btn-warning { background: #ffc107; color: black; }
-    .btn-danger { background: #dc3545; color: white; }
-    .btn-secondary { background: #6c757d; color: white; }
-    .badge { padding: 4px 8px; border-radius: 4px; font-size: 12px; color: white; }
-    .badge-draft { background: #6c757d; }
-    .badge-review { background: #ffc107; color: black; }
-    .badge-pass { background: #198754; }
+    :root {
+      --ink: #203b4a;
+      --muted: #647783;
+      --line: #d7e1df;
+      --canvas: #edf3f1;
+      --paper: #ffffff;
+      --teal: #087e78;
+      --teal-dark: #06645f;
+      --amber: #9a5c08;
+      --green: #27734d;
+      --red: #b43e48;
+    }
+    * { box-sizing: border-box; }
+    body { min-height: 100vh; margin: 0; padding: 32px clamp(16px, 4vw, 64px) 56px; background: var(--canvas); color: var(--ink); font-family: "Segoe UI", "Noto Sans TC", sans-serif; }
+    h1 { margin: 0 0 26px; font-size: 30px; }
+    h2 { margin: 30px 0 16px; font-size: 22px; }
+    h3 { margin: 0 0 18px; font-size: 20px; }
+    .nav-tabs { display: flex; gap: 8px; margin: 0 calc(-1 * clamp(16px, 4vw, 64px)) 28px; padding: 0 clamp(16px, 4vw, 64px); border-bottom: 1px solid var(--line); background: var(--paper); }
+    .tab-btn { padding: 16px 20px; border: 0; border-bottom: 3px solid transparent; background: transparent; color: var(--muted); cursor: pointer; font: inherit; font-weight: 700; }
+    .tab-btn.active { border-bottom-color: var(--teal); color: var(--teal-dark); }
+    .card { width: 100%; margin-bottom: 16px; padding: 24px; border: 1px solid var(--line); border-radius: 8px; background: var(--paper); box-shadow: 0 4px 14px rgba(32,59,74,.06); }
+    #authorSection > .card { padding: 28px; }
+    input, textarea, select { width: 100%; margin: 8px 0 18px; padding: 12px 14px; border: 1px solid #c8d5d2; border-radius: 6px; background: #fbfdfc; color: var(--ink); font: inherit; }
+    input:focus, textarea:focus, select:focus { outline: 2px solid rgba(8,126,120,.2); border-color: var(--teal); }
+    button { padding: 10px 16px; border: 0; border-radius: 5px; cursor: pointer; font: inherit; font-weight: 700; transition: background .16s ease, transform .16s ease, border-color .16s ease; }
+    button:hover { transform: translateY(-1px); }
+    .btn-primary { background: var(--teal); color: white; }
+    .btn-primary:hover { background: var(--teal-dark); }
+    .btn-success { background: var(--green); color: white; }
+    .btn-warning { background: #f4c66a; color: #3e300f; }
+    .btn-danger { background: var(--red); color: white; }
+    .btn-secondary { border: 1px solid var(--line); background: #f4f7f6; color: var(--ink); }
+    .badge { display: inline-block; padding: 5px 10px; border-radius: 99px; font-size: 12px; font-weight: 700; white-space: nowrap; }
+    .badge-draft { background: #e8edf0; color: #526570; }
+    .badge-review { background: #fff0cf; color: var(--amber); }
+    .badge-pass { background: #dff1e6; color: var(--green); }
+    .category-list { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 16px; width: 100%; margin-bottom: 24px; }
+    .category-btn { display: flex; min-height: 150px; flex-direction: column; justify-content: space-between; width: 100%; padding: 22px; border: 1px solid var(--line); border-top: 5px solid var(--teal); border-radius: 8px; background: var(--paper); color: var(--ink); text-align: left; box-shadow: 0 4px 14px rgba(32,59,74,.06); }
+    .category-btn[data-status="編輯中"] { border-top-color: #758794; }
+    .category-btn[data-status="已審查"] { border-top-color: #d09427; }
+    .category-btn[data-status="已通過"] { border-top-color: var(--green); }
+    .category-btn:hover { border-right-color: var(--teal); border-bottom-color: var(--teal); border-left-color: var(--teal); }
+    .category-name { font-size: 20px; }
+    .category-count { color: var(--muted); font-size: 14px; font-weight: 500; }
+    .category-header { display: flex; align-items: center; gap: 14px; margin: 8px 0 20px; }
+    .category-header h3 { margin: 0; }
+    .article-heading { display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; }
+    .article-heading h4 { margin: 0; font-size: 19px; }
+    @media (max-width: 760px) {
+      body { padding: 22px 16px 36px; }
+      .nav-tabs { margin-right: -16px; margin-left: -16px; padding-right: 16px; padding-left: 16px; }
+      .tab-btn { padding: 14px 10px; font-size: 14px; }
+      .category-list { grid-template-columns: 1fr; gap: 10px; }
+      .category-btn { min-height: 112px; }
+      .card, #authorSection > .card { padding: 18px; }
+    }
   </style>
 </head>
 <body>
@@ -84,31 +124,95 @@
       const res = await fetch(`/api/articles/author/${author}`);
       const list = await res.json();
       const container = document.getElementById('authorArticleList');
-      container.innerHTML = '';
+      renderCategoryList(container, list, 'author');
+    }
 
-      if (list.length === 0) {
-        container.innerHTML = '<p>目前尚無投稿紀錄。</p>';
+    function escapeHtml(value) {
+      return String(value ?? '').replace(/[&<>"']/g, char => ({
+        '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'
+      })[char]);
+    }
+
+    function getStatusCategory(article, role) {
+      if (article.status === '審查中') return role === 'editor' ? '待審查' : '已審查';
+      return article.status || '其他';
+    }
+
+    function renderCategoryList(container, articles, role) {
+      container.innerHTML = '';
+      if (articles.length === 0) {
+        container.innerHTML = role === 'author' ? '<p>目前尚無投稿紀錄。</p>' : '<p>目前沒有待審查或已通過稿件。</p>';
         return;
       }
 
-      list.forEach(item => {
-        let badgeClass = item.status === '編輯中' ? 'badge-draft' : (item.status === '審查中' ? 'badge-review' : 'badge-pass');
-        container.innerHTML += `
-          <div class="card">
-            <div style="display:flex; justify-content:space-between;">
-              <h4>[${item.category}] ${item.title}</h4>
-              <span class="badge ${badgeClass}">${item.status}</span>
+      const categoryNames = role === 'author' ? ['編輯中', '已審查', '已通過'] : ['待審查', '已通過'];
+      const buttons = document.createElement('div');
+      buttons.className = 'category-list';
+
+      categoryNames.forEach(category => {
+        const count = articles.filter(item => getStatusCategory(item, role) === category).length;
+        const button = document.createElement('button');
+        button.className = 'category-btn';
+        button.dataset.status = category;
+        button.innerHTML = `<span class="category-name">${escapeHtml(category)}</span><span class="category-count">${count} 篇稿件</span>`;
+        button.addEventListener('click', () => renderCategoryDocuments(container, articles, category, role));
+        buttons.appendChild(button);
+      });
+      container.appendChild(buttons);
+    }
+
+    function renderCategoryDocuments(container, articles, category, role) {
+      const documents = articles.filter(item => getStatusCategory(item, role) === category);
+      container.innerHTML = `
+        <div class="category-header">
+          <button class="btn-secondary" type="button">返回分類</button>
+          <h3>${escapeHtml(category)}</h3>
+        </div>
+      `;
+      container.querySelector('.category-header button').addEventListener('click', () => renderCategoryList(container, articles, role));
+
+      documents.forEach(item => {
+        const card = document.createElement('div');
+        card.className = 'card';
+        if (role === 'author') {
+          const badgeClass = item.status === '編輯中' ? 'badge-draft' : (item.status === '審查中' ? 'badge-review' : 'badge-pass');
+          card.innerHTML = `
+            <div class="article-heading">
+              <h4>${escapeHtml(item.title)}</h4>
+              <span class="badge ${badgeClass}">${escapeHtml(getStatusCategory(item))}</span>
             </div>
-            <p style="white-space: pre-wrap;">${item.content}</p>
+            <p style="white-space: pre-wrap;">${escapeHtml(item.content)}</p>
             <div>
               ${item.status === '編輯中' ? `
-                <button class="btn-warning" onclick="setupEdit(${JSON.stringify(item).replace(/"/g, '&quot;')})">編輯</button>
-                <button class="btn-danger" onclick="deleteArticle(${item.id})">刪除</button>
-                <button class="btn-success" onclick="submitArticle(${item.id})">送出投稿</button>
+                <button class="btn-warning" data-action="edit">編輯</button>
+                <button class="btn-danger" data-action="delete">刪除</button>
+                <button class="btn-success" data-action="submit">送出投稿</button>
               ` : '<small style="color:#666;">稿件已進入審查流轉程序，無法修改或刪除。</small>'}
             </div>
-          </div>
-        `;
+          `;
+          card.querySelector('[data-action="edit"]')?.addEventListener('click', () => setupEdit(item));
+          card.querySelector('[data-action="delete"]')?.addEventListener('click', () => deleteArticle(item.id));
+          card.querySelector('[data-action="submit"]')?.addEventListener('click', () => submitArticle(item.id));
+        } else {
+          const isPending = item.status === '審查中';
+          card.innerHTML = `
+            <div class="article-heading">
+              <h4>${escapeHtml(item.title)}</h4>
+              <span class="badge ${isPending ? 'badge-review' : 'badge-pass'}">${escapeHtml(getStatusCategory(item, role))}</span>
+            </div>
+            <p><strong>作者：</strong>${escapeHtml(item.author_name)}</p>
+            <p style="background: #f1f3f5; padding: 10px; border-radius: 4px; white-space: pre-wrap;">${escapeHtml(item.content)}</p>
+            <div>
+              ${isPending ? `
+                <button class="btn-success" data-action="approve">通過</button>
+                <button class="btn-danger" data-action="reject">退回稿件</button>
+              ` : '<small style="color:#666;">稿件已審查通過。</small>'}
+            </div>
+          `;
+          card.querySelector('[data-action="approve"]')?.addEventListener('click', () => approveArticle(item.id));
+          card.querySelector('[data-action="reject"]')?.addEventListener('click', () => rejectArticle(item.id));
+        }
+        container.appendChild(card);
       });
     }
 
@@ -178,29 +282,13 @@
 
     // ---------- 編輯功能 ----------
     async function loadPendingArticles() {
-      const res = await fetch('/api/articles/editor/pending');
-      const list = await res.json();
+      const [pendingRes, approvedRes] = await Promise.all([
+        fetch('/api/articles/editor/pending'),
+        fetch('/api/articles/editor/approved')
+      ]);
+      const [pendingList, approvedList] = await Promise.all([pendingRes.json(), approvedRes.json()]);
       const container = document.getElementById('editorPendingList');
-      container.innerHTML = '';
-
-      if (list.length === 0) {
-        container.innerHTML = '<p>目前無待審查稿件。</p>';
-        return;
-      }
-
-      list.forEach(item => {
-        container.innerHTML += `
-          <div class="card">
-            <h4>[${item.category}] ${item.title}</h4>
-            <p><strong>作者：</strong>${item.author_name}</p>
-            <p style="background: #f1f3f5; padding: 10px; border-radius: 4px; white-space: pre-wrap;">${item.content}</p>
-            <div>
-              <button class="btn-success" onclick="approveArticle(${item.id})">通過</button>
-              <button class="btn-danger" onclick="rejectArticle(${item.id})">退回稿件</button>
-            </div>
-          </div>
-        `;
-      });
+      renderCategoryList(container, [...pendingList, ...approvedList], 'editor');
     }
 
     async function approveArticle(id) {

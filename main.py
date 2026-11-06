@@ -145,6 +145,19 @@ def get_pending_articles():
     finally:
         conn.close()
 
+# 6. 查看已通過稿件
+@app.get("/api/articles/editor/approved")
+def get_approved_articles():
+    conn = get_connection()
+    try:
+        with conn.cursor() as cur:
+            cur.execute(
+                "SELECT id, author_name, category, title, content, status FROM articles WHERE status = '已通過' ORDER BY id ASC;"
+            )
+            return cur.fetchall()
+    finally:
+        conn.close()
+
 # 7. 選擇通過 : 審查中 => 已通過
 @app.post("/api/articles/{art_id}/approve")
 def approve_article(art_id: int):

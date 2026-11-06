@@ -1,0 +1,223 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+  <meta charset="UTF-8">
+  <title>投稿審查系統</title>
+  <style>
+    body { font-family: -apple-system, sans-serif; max-width: 900px; margin: 30px auto; padding: 0 20px; background: #f8f9fa; color: #333; }
+    .nav-tabs { display: flex; gap: 10px; margin-bottom: 20px; border-bottom: 2px solid #ccc; padding-bottom: 10px; }
+    .tab-btn { padding: 10px 20px; cursor: pointer; border: none; background: #e9ecef; font-weight: bold; border-radius: 4px; }
+    .tab-btn.active { background: #0d6efd; color: white; }
+    .card { background: white; padding: 20px; border-radius: 8px; border: 1px solid #dee2e6; margin-bottom: 15px; box-shadow: 0 2px 4px rgba(0,0,0,0.05); }
+    input, textarea, select { width: 100%; padding: 8px; margin: 8px 0 16px 0; border: 1px solid #ccc; border-radius: 4px; box-sizing: border-box; }
+    button { padding: 8px 14px; border: none; border-radius: 4px; cursor: pointer; font-weight: bold; margin-right: 6px; }
+    .btn-primary { background: #0d6efd; color: white; }
+    .btn-success { background: #198754; color: white; }
+    .btn-warning { background: #ffc107; color: black; }
+    .btn-danger { background: #dc3545; color: white; }
+    .btn-secondary { background: #6c757d; color: white; }
+    .badge { padding: 4px 8px; border-radius: 4px; font-size: 12px; color: white; }
+    .badge-draft { background: #6c757d; }
+    .badge-review { background: #ffc107; color: black; }
+    .badge-pass { background: #198754; }
+  </style>
+</head>
+<body>
+
+  <h1>投稿審查系統</h1>
+
+  <div class="nav-tabs">
+    <button class="tab-btn active" id="btnTabAuthor" onclick="switchRole('author')">✍️ 作者專區</button>
+    <button class="tab-btn" id="btnTabEditor" onclick="switchRole('editor')">🔍 編輯審查專區</button>
+  </div>
+
+  <!-- ==================== 作者視角 ==================== -->
+  <div id="authorSection">
+    <div class="card">
+      <h3>撰寫新投稿 / 編輯草稿</h3>
+      <input type="hidden" id="editArtId">
+      <label>作者名稱：</label>
+      <input type="text" id="authorName" value="劉采蓁">
+      <label>稿件類別：</label>
+      <input type="text" id="category" placeholder="例如：資訊管理 / 軟體工程">
+      <label>稿件標題：</label>
+      <input type="text" id="artTitle" placeholder="請輸入標題">
+      <label>文章內容：</label>
+      <textarea id="artContent" rows="5" placeholder="請輸入文章詳細內容"></textarea>
+      
+      <button class="btn-primary" id="btnSave" onclick="saveArticle()">儲存草稿 (新增/編輯)</button>
+      <button class="btn-secondary" onclick="resetForm()">重設表單</button>
+    </div>
+
+    <h2>我的投稿稿件清單</h2>
+    <div id="authorArticleList">載入中...</div>
+  </div>
+
+  <!-- ==================== 編輯視角 ==================== -->
+  <div id="editorSection" style="display: none;">
+    <h2>待審查稿件清單</h2>
+    <div id="editorPendingList">載入中...</div>
+  </div>
+
+  <script>
+    function switchRole(role) {
+      if (role === 'author') {
+        document.getElementById('authorSection').style.display = 'block';
+        document.getElementById('editorSection').style.display = 'none';
+        document.getElementById('btnTabAuthor').classList.add('active');
+        document.getElementById('btnTabEditor').classList.remove('active');
+        loadAuthorArticles();
+      } else {
+        document.getElementById('authorSection').style.display = 'none';
+        document.getElementById('editorSection').style.display = 'block';
+        document.getElementById('btnTabAuthor').classList.remove('active');
+        document.getElementById('btnTabEditor').classList.add('active');
+        loadPendingArticles();
+      }
+    }
+
+    // ---------- 作者功能 ----------
+    async function loadAuthorArticles() {
+      const author = document.getElementById('authorName').value.trim();
+      if (!author) return;
+
+      const res = await fetch(`/api/articles/author/${author}`);
+      const list = await res.json();
+      const container = document.getElementById('authorArticleList');
+      container.innerHTML = '';
+
+      if (list.length === 0) {
+        container.innerHTML = '<p>目前尚無投稿紀錄。</p>';
+        return;
+      }
+
+      list.forEach(item => {
+        let badgeClass = item.status === '編輯中' ? 'badge-draft' : (item.status === '審查中' ? 'badge-review' : 'badge-pass');
+        container.innerHTML += `
+          <div class="card">
+            <div style="display:flex; justify-content:space-between;">
+              <h4>[${item.category}] ${item.title}</h4>
+              <span class="badge ${badgeClass}">${item.status}</span>
+            </div>
+            <p style="white-space: pre-wrap;">${item.content}</p>
+            <div>
+              ${item.status === '編輯中' ? `
+                <button class="btn-warning" onclick="setupEdit(${JSON.stringify(item).replace(/"/g, '&quot;')})">編輯</button>
+                <button class="btn-danger" onclick="deleteArticle(${item.id})">刪除</button>
+                <button class="btn-success" onclick="submitArticle(${item.id})">送出投稿</button>
+              ` : '<small style="color:#666;">稿件已進入審查流轉程序，無法修改或刪除。</small>'}
+            </div>
+          </div>
+        `;
+      });
+    }
+
+    async function saveArticle() {
+      const id = document.getElementById('editArtId').value;
+      const author_name = document.getElementById('authorName').value.trim();
+      const category = document.getElementById('category').value.trim();
+      const title = document.getElementById('artTitle').value.trim();
+      const content = document.getElementById('artContent').value.trim();
+
+      if (!author_name || !category || !title || !content) return alert('請完整填寫所有欄位！');
+
+      if (id) {
+        // 編輯草稿
+        const res = await fetch(`/api/articles/${id}`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ category, title, content })
+        });
+        const data = await res.json();
+        alert(res.ok ? data.message : data.detail);
+      } else {
+        // 新增草稿
+        const res = await fetch('/api/articles', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ author_name, category, title, content })
+        });
+        const data = await res.json();
+        alert(res.ok ? data.message : data.detail);
+      }
+      resetForm();
+      loadAuthorArticles();
+    }
+
+    function setupEdit(item) {
+      document.getElementById('editArtId').value = item.id;
+      document.getElementById('category').value = item.category;
+      document.getElementById('artTitle').value = item.title;
+      document.getElementById('artContent').value = item.content;
+      document.getElementById('btnSave').innerText = '儲存修改';
+    }
+
+    function resetForm() {
+      document.getElementById('editArtId').value = '';
+      document.getElementById('category').value = '';
+      document.getElementById('artTitle').value = '';
+      document.getElementById('artContent').value = '';
+      document.getElementById('btnSave').innerText = '儲存草稿 (新增/編輯)';
+    }
+
+    async function deleteArticle(id) {
+      if (!confirm('確定要刪除這篇草稿嗎？')) return;
+      const res = await fetch(`/api/articles/${id}`, { method: 'DELETE' });
+      const data = await res.json();
+      alert(data.message || data.detail);
+      loadAuthorArticles();
+    }
+
+    async function submitArticle(id) {
+      if (!confirm('送出投稿後將進入審查階段，確定送出嗎？')) return;
+      const res = await fetch(`/api/articles/${id}/submit`, { method: 'POST' });
+      const data = await res.json();
+      alert(data.message || data.detail);
+      loadAuthorArticles();
+    }
+
+    // ---------- 編輯功能 ----------
+    async function loadPendingArticles() {
+      const res = await fetch('/api/articles/editor/pending');
+      const list = await res.json();
+      const container = document.getElementById('editorPendingList');
+      container.innerHTML = '';
+
+      if (list.length === 0) {
+        container.innerHTML = '<p>目前無待審查稿件。</p>';
+        return;
+      }
+
+      list.forEach(item => {
+        container.innerHTML += `
+          <div class="card">
+            <h4>[${item.category}] ${item.title}</h4>
+            <p><strong>作者：</strong>${item.author_name}</p>
+            <p style="background: #f1f3f5; padding: 10px; border-radius: 4px; white-space: pre-wrap;">${item.content}</p>
+            <div>
+              <button class="btn-success" onclick="approveArticle(${item.id})">通過</button>
+              <button class="btn-danger" onclick="rejectArticle(${item.id})">退回稿件</button>
+            </div>
+          </div>
+        `;
+      });
+    }
+
+    async function approveArticle(id) {
+      const res = await fetch(`/api/articles/${id}/approve`, { method: 'POST' });
+      const data = await res.json();
+      alert(data.message);
+      loadPendingArticles();
+    }
+
+    async function rejectArticle(id) {
+      const res = await fetch(`/api/articles/${id}/reject`, { method: 'POST' });
+      const data = await res.json();
+      alert(data.message);
+      loadPendingArticles();
+    }
+
+    loadAuthorArticles();
+  </script>
+</body>
+</html>

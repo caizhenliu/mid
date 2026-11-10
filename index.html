@@ -2,129 +2,432 @@
 <html lang="zh-TW">
 <head>
   <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>投稿審查系統</title>
   <style>
     :root {
-      --ink: #203b4a;
-      --muted: #647783;
-      --line: #d7e1df;
-      --canvas: #edf3f1;
-      --paper: #ffffff;
-      --teal: #087e78;
-      --teal-dark: #06645f;
-      --amber: #9a5c08;
-      --green: #27734d;
-      --red: #b43e48;
+      color-scheme: light;
+      --ink: #373229;
+      --muted: #796f60;
+      --line: #e2d9ca;
+      --canvas: #f4f0e7;
+      --paper: #fffdf8;
+      --olive: #68765a;
+      --olive-dark: #4e5e43;
+      --amber: #946e3f;
+      --green: #5d7659;
+      --red: #a45e50;
+      --focus: rgba(104, 118, 90, .22);
     }
     * { box-sizing: border-box; }
-    body { min-height: 100vh; margin: 0; padding: 32px clamp(16px, 4vw, 64px) 56px; background: var(--canvas); color: var(--ink); font-family: "Segoe UI", "Noto Sans TC", sans-serif; }
-    h1 { margin: 0 0 26px; font-size: 30px; }
-    h2 { margin: 30px 0 16px; font-size: 22px; }
-    h3 { margin: 0 0 18px; font-size: 20px; }
-    .nav-tabs { display: flex; gap: 8px; margin: 0 calc(-1 * clamp(16px, 4vw, 64px)) 28px; padding: 0 clamp(16px, 4vw, 64px); border-bottom: 1px solid var(--line); background: var(--paper); }
-    .tab-btn { padding: 16px 20px; border: 0; border-bottom: 3px solid transparent; background: transparent; color: var(--muted); cursor: pointer; font: inherit; font-weight: 700; }
-    .tab-btn.active { border-bottom-color: var(--teal); color: var(--teal-dark); }
-    .card { width: 100%; margin-bottom: 16px; padding: 24px; border: 1px solid var(--line); border-radius: 8px; background: var(--paper); box-shadow: 0 4px 14px rgba(32,59,74,.06); }
-    #authorSection > .card { padding: 28px; }
-    input, textarea, select { width: 100%; margin: 8px 0 18px; padding: 12px 14px; border: 1px solid #c8d5d2; border-radius: 6px; background: #fbfdfc; color: var(--ink); font: inherit; }
-    input:focus, textarea:focus, select:focus { outline: 2px solid rgba(8,126,120,.2); border-color: var(--teal); }
-    button { padding: 10px 16px; border: 0; border-radius: 5px; cursor: pointer; font: inherit; font-weight: 700; transition: background .16s ease, transform .16s ease, border-color .16s ease; }
-    button:hover { transform: translateY(-1px); }
-    .btn-primary { background: var(--teal); color: white; }
-    .btn-primary:hover { background: var(--teal-dark); }
-    .btn-success { background: var(--green); color: white; }
-    .btn-warning { background: #f4c66a; color: #3e300f; }
-    .btn-danger { background: var(--red); color: white; }
-    .btn-secondary { border: 1px solid var(--line); background: #f4f7f6; color: var(--ink); }
-    .badge { display: inline-block; padding: 5px 10px; border-radius: 99px; font-size: 12px; font-weight: 700; white-space: nowrap; }
-    .badge-draft { background: #e8edf0; color: #526570; }
-    .badge-review { background: #fff0cf; color: var(--amber); }
-    .badge-pass { background: #dff1e6; color: var(--green); }
-    .category-list { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 16px; width: 100%; margin-bottom: 24px; }
-    .category-btn { display: flex; min-height: 150px; flex-direction: column; justify-content: space-between; width: 100%; padding: 22px; border: 1px solid var(--line); border-top: 5px solid var(--teal); border-radius: 8px; background: var(--paper); color: var(--ink); text-align: left; box-shadow: 0 4px 14px rgba(32,59,74,.06); }
-    .category-btn[data-status="編輯中"] { border-top-color: #758794; }
-    .category-btn[data-status="已審查"] { border-top-color: #d09427; }
+    body { min-height: 100vh; margin: 0; padding: 40px 24px 64px; background: var(--canvas); color: var(--ink); font-family: "Segoe UI", "Noto Sans TC", sans-serif; line-height: 1.6; }
+    button, input, textarea { font: inherit; }
+    button { cursor: pointer; }
+    button:focus-visible, a:focus-visible, input:focus-visible, textarea:focus-visible, .dropzone:focus-within { outline: 3px solid var(--focus); outline-offset: 2px; }
+    .shell { width: min(100%, 1080px); margin: 0 auto; }
+    .page-header { display: flex; align-items: center; gap: 18px; margin: 0 0 30px; }
+    .brand-mark { display: grid; width: 52px; height: 52px; flex: 0 0 52px; place-items: center; border-radius: 15px; background: var(--olive); color: #fff; font-size: 16px; font-weight: 800; letter-spacing: .04em; }
+    .eyebrow { margin: 0 0 3px; color: var(--olive-dark); font-size: 11px; font-weight: 800; letter-spacing: .13em; }
+    h1 { margin: 0; font-size: clamp(24px, 3vw, 30px); letter-spacing: -.03em; }
+    .page-description { margin: 3px 0 0; color: var(--muted); font-size: 14px; }
+    .header-pill { margin-left: auto; padding: 7px 12px; border: 1px solid var(--line); border-radius: 999px; background: var(--paper); color: var(--muted); font-size: 12px; font-weight: 700; white-space: nowrap; }
+    .nav-tabs { display: flex; gap: 6px; margin-bottom: 22px; padding: 6px; border: 1px solid var(--line); border-radius: 12px; background: #eae4d8; }
+    .workspace-tabs { display: flex; gap: 8px; margin-bottom: 18px; border-bottom: 1px solid var(--line); }
+    .workspace-tab { padding: 10px 14px; border: 0; border-bottom: 3px solid transparent; background: transparent; color: var(--muted); font-weight: 700; }
+    .workspace-tab.active { border-bottom-color: var(--olive); color: var(--olive-dark); }
+    .view-heading { display: flex; align-items: flex-end; justify-content: space-between; gap: 16px; margin: 0 0 18px; }
+    .view-heading h2 { font-size: 21px; }
+    .view-heading p { margin: 4px 0 0; color: var(--muted); font-size: 13px; }
+    .tab-btn { flex: 1; padding: 12px 18px; border: 0; border-radius: 8px; background: transparent; color: var(--muted); font-weight: 700; transition: background .16s ease, color .16s ease, box-shadow .16s ease; }
+    .tab-btn:hover { color: var(--ink); }
+    .tab-btn.active { background: var(--paper); color: var(--olive-dark); box-shadow: 0 2px 6px rgba(55,50,41,.08); }
+    .panel, .card { border: 1px solid var(--line); border-radius: 12px; background: var(--paper); box-shadow: 0 8px 24px rgba(55,50,41,.045); }
+    .panel { padding: clamp(20px, 4vw, 34px); }
+    .section-heading { margin: 0 0 24px; }
+    .section-kicker { margin: 0 0 4px; color: var(--olive-dark); font-size: 12px; font-weight: 800; letter-spacing: .1em; }
+    h2 { margin: 0; font-size: 22px; letter-spacing: -.02em; }
+    .section-description { margin: 6px 0 0; color: var(--muted); font-size: 14px; }
+    .form-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0 18px; }
+    .field { min-width: 0; margin-bottom: 18px; }
+    .field-full { grid-column: 1 / -1; }
+    label, .field-label { display: block; margin-bottom: 7px; color: #50483b; font-size: 13px; font-weight: 700; }
+    .required-mark { color: var(--red); }
+    input[type="text"], input[type="password"], select, textarea { display: block; width: 100%; padding: 11px 13px; border: 1px solid #d6ccbb; border-radius: 7px; background: #fffefa; color: var(--ink); }
+    input[type="text"]::placeholder, input[type="password"]::placeholder, textarea::placeholder { color: #a69b89; }
+    input[type="text"]:focus, input[type="password"]:focus, select:focus, textarea:focus { outline: 3px solid var(--focus); border-color: var(--olive); }
+    input[readonly] { background: #eee9df; color: var(--muted); }
+    [hidden] { display: none !important; }
+    .auth-panel { width: min(100%, 520px); margin: clamp(24px, 8vh, 80px) auto; padding: clamp(22px, 5vw, 36px); }
+    .auth-heading { margin-bottom: 22px; }
+    .auth-heading h1 { font-size: 25px; }
+    .auth-switch { display: flex; gap: 6px; margin-bottom: 22px; padding: 5px; border-radius: 9px; background: #eee9df; }
+    .auth-switch button { flex: 1; padding: 10px; border: 0; border-radius: 7px; background: transparent; color: var(--muted); font-weight: 700; }
+    .auth-switch button.active { background: white; color: var(--olive-dark); box-shadow: 0 2px 6px rgba(55,50,41,.08); }
+    .auth-form .field { margin-bottom: 16px; }
+    .auth-form .button { width: 100%; margin-top: 4px; }
+    .auth-footnote { margin: 16px 0 0; color: var(--muted); font-size: 12px; }
+    .session-controls { display: flex; align-items: center; gap: 10px; margin-left: auto; }
+    .session-name { color: var(--muted); font-size: 12px; font-weight: 700; }
+    .session-controls .button { min-height: 34px; padding: 6px 11px; }
+    .hidden-input { display: none !important; }
+    textarea { min-height: 150px; resize: vertical; }
+    .field-hint { margin: 6px 0 0; color: var(--muted); font-size: 12px; }
+    .dropzone { padding: 22px; border: 1px dashed #b6a990; border-radius: 9px; background: #faf7f0; text-align: center; transition: border-color .16s ease, background .16s ease; }
+    .dropzone.drag-over { border-color: var(--olive); background: #eeefe6; }
+    .upload-symbol { display: grid; width: 38px; height: 38px; margin: 0 auto 9px; place-items: center; border-radius: 11px; background: #e8ebdf; color: var(--olive-dark); font-size: 20px; }
+    .dropzone-title { margin: 0; font-size: 14px; font-weight: 700; }
+    .dropzone-help { margin: 3px 0 12px; color: var(--muted); font-size: 12px; }
+    .visually-hidden { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0, 0, 0, 0); white-space: nowrap; clip-path: inset(50%); }
+    .file-list { display: grid; gap: 8px; margin: 12px 0 0; padding: 0; list-style: none; text-align: left; }
+    .file-row, .attachment-row { display: flex; align-items: center; gap: 12px; min-width: 0; padding: 10px 12px; border: 1px solid var(--line); border-radius: 8px; background: #fffefa; }
+    .file-icon { display: grid; width: 34px; height: 34px; flex: 0 0 34px; place-items: center; border-radius: 8px; background: #eee9df; color: #675c4b; font-size: 10px; font-weight: 800; text-transform: uppercase; }
+    .file-details { min-width: 0; flex: 1; }
+    .file-name { display: block; overflow: hidden; color: var(--ink); font-size: 13px; font-weight: 700; text-overflow: ellipsis; white-space: nowrap; }
+    .file-size { display: block; color: var(--muted); font-size: 11px; }
+    .file-remove { padding: 6px 9px; border: 1px solid var(--line); border-radius: 6px; background: white; color: var(--muted); font-size: 12px; }
+    .file-remove:hover { border-color: #d9b8a9; background: #f8eee8; color: var(--red); }
+    .form-message { margin: 0 0 16px; padding: 10px 12px; border-radius: 7px; font-size: 13px; }
+    .form-message.error { background: #f8eee8; color: #874a3f; }
+    .form-message.success { background: #edf1e8; color: #4d6549; }
+    .form-actions, .article-actions { display: flex; flex-wrap: wrap; gap: 9px; }
+    .form-actions { margin-top: 6px; padding-top: 20px; border-top: 1px solid #eee9df; }
+    .button { display: inline-flex; align-items: center; justify-content: center; min-height: 40px; padding: 9px 15px; border: 1px solid transparent; border-radius: 7px; font-size: 13px; font-weight: 700; transition: background .16s ease, border-color .16s ease, transform .16s ease; }
+    .button:hover { transform: translateY(-1px); }
+    .button:disabled { cursor: wait; opacity: .65; transform: none; }
+    .btn-primary { background: var(--olive); color: #fff; }
+    .btn-primary:hover { background: var(--olive-dark); }
+    .btn-success { background: var(--green); color: #fff; }
+    .btn-warning { background: #f0e6d3; color: #755a34; }
+    .btn-danger { background: #f7ece7; color: #8e4d43; }
+    .btn-danger:hover { background: #f0ded6; }
+    .btn-secondary { border-color: var(--line); background: #fffefa; color: #5c5345; }
+    .btn-secondary:hover { border-color: #bcb09d; background: #f8f5ed; }
+    .list-heading { display: flex; align-items: end; justify-content: space-between; gap: 12px; margin: 34px 0 14px; }
+    .list-heading h2 { font-size: 19px; }
+    .list-heading p { margin: 0; color: var(--muted); font-size: 12px; }
+    .category-list { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 14px; margin-bottom: 20px; }
+    .category-btn { display: flex; min-height: 124px; flex-direction: column; justify-content: space-between; padding: 20px; border: 1px solid var(--line); border-top: 3px solid var(--olive); border-radius: 10px; background: var(--paper); color: var(--ink); text-align: left; box-shadow: 0 5px 18px rgba(55,50,41,.035); transition: transform .16s ease, box-shadow .16s ease; }
+    .category-btn[data-status="編輯中"] { border-top-color: #8d8777; }
+    .category-btn[data-status="審查中"], .category-btn[data-status="待審查"] { border-top-color: #aa8552; }
     .category-btn[data-status="已通過"] { border-top-color: var(--green); }
-    .category-btn:hover { border-right-color: var(--teal); border-bottom-color: var(--teal); border-left-color: var(--teal); }
-    .category-name { font-size: 20px; }
-    .category-count { color: var(--muted); font-size: 14px; font-weight: 500; }
-    .category-header { display: flex; align-items: center; gap: 14px; margin: 8px 0 20px; }
-    .category-header h3 { margin: 0; }
+    .category-btn:hover { transform: translateY(-2px); box-shadow: 0 9px 22px rgba(55,50,41,.08); }
+    .category-name { font-size: 16px; font-weight: 800; }
+    .category-count { color: var(--muted); font-size: 12px; }
+    .category-header { display: flex; align-items: center; gap: 14px; margin: 6px 0 16px; }
+    .category-header h3 { margin: 0; font-size: 18px; }
+    .card { margin-bottom: 12px; padding: 20px; }
     .article-heading { display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; }
-    .article-heading h4 { margin: 0; font-size: 19px; }
-    @media (max-width: 760px) {
-      body { padding: 22px 16px 36px; }
-      .nav-tabs { margin-right: -16px; margin-left: -16px; padding-right: 16px; padding-left: 16px; }
-      .tab-btn { padding: 14px 10px; font-size: 14px; }
-      .category-list { grid-template-columns: 1fr; gap: 10px; }
-      .category-btn { min-height: 112px; }
-      .card, #authorSection > .card { padding: 18px; }
+    .article-heading h4 { margin: 0; font-size: 17px; line-height: 1.45; }
+    .article-meta { margin: 5px 0 0; color: var(--muted); font-size: 12px; }
+    .article-content { margin: 16px 0; padding: 14px; border-radius: 8px; background: #f5f1e8; color: #514a3e; white-space: pre-wrap; overflow-wrap: anywhere; }
+    .article-note { display: block; margin-top: 12px; color: var(--muted); font-size: 12px; }
+    .badge { display: inline-flex; align-items: center; padding: 5px 9px; border-radius: 999px; font-size: 11px; font-weight: 800; white-space: nowrap; }
+    .badge-draft { background: #eeeae1; color: #665e50; }
+    .badge-review { background: #f2e9d8; color: #80613a; }
+    .badge-pass { background: #e9eee3; color: var(--green); }
+    .attachment-block { margin: 14px 0; }
+    .attachment-title { margin: 0 0 7px; color: #675e50; font-size: 12px; font-weight: 700; }
+    .attachment-list { display: grid; gap: 7px; }
+    .attachment-row { padding: 8px 10px; }
+    .attachment-row a { min-width: 0; flex: 1; color: var(--olive-dark); font-size: 12px; font-weight: 700; text-decoration: none; }
+    .attachment-row a:hover { text-decoration: underline; }
+    .empty-state, .loading-state { padding: 22px; border: 1px dashed var(--line); border-radius: 9px; color: var(--muted); font-size: 13px; text-align: center; }
+    .page-footer { margin-top: 36px; color: #968b79; font-size: 11px; text-align: center; }
+    @media (max-width: 700px) {
+      body { padding: 24px 16px 40px; }
+      .page-header { align-items: flex-start; gap: 12px; }
+      .brand-mark { width: 44px; height: 44px; flex-basis: 44px; border-radius: 12px; }
+      .header-pill { display: none; }
+      .nav-tabs { gap: 3px; }
+      .tab-btn { padding: 11px 8px; font-size: 12px; }
+      .view-heading { align-items: flex-start; }
+      .view-heading .button { flex: 0 0 auto; }
+      .form-grid { grid-template-columns: 1fr; }
+      .field-full { grid-column: auto; }
+      .category-list { grid-template-columns: 1fr; gap: 9px; }
+      .category-btn { min-height: 90px; padding: 16px; }
+      .card { padding: 16px; }
+      .article-heading { gap: 8px; }
+      .article-heading h4 { font-size: 15px; }
+    }
+    @media (prefers-reduced-motion: reduce) {
+      *, *::before, *::after { scroll-behavior: auto !important; transition-duration: .01ms !important; }
     }
   </style>
 </head>
 <body>
+  <main class="shell">
+    <section class="auth-panel panel" id="authSection">
+      <div class="auth-heading">
+        <p class="eyebrow">MANUSCRIPT WORKSPACE</p>
+        <h1 id="authTitle">登入投稿審查系統</h1>
+        <p class="page-description">登入後依帳號角色進入作者或編輯工作區。</p>
+      </div>
+      <div class="auth-switch" role="tablist" aria-label="登入或註冊">
+        <button class="active" type="button" id="loginModeButton" role="tab" aria-selected="true">登入</button>
+        <button type="button" id="registerModeButton" role="tab" aria-selected="false">註冊帳號</button>
+      </div>
+      <form class="auth-form" id="loginForm">
+        <div class="field">
+          <label for="loginUsername">帳號</label>
+          <input type="text" id="loginUsername" minlength="3" maxlength="50" autocomplete="username" required>
+        </div>
+        <div class="field">
+          <label for="loginPassword">密碼</label>
+          <input type="password" id="loginPassword" minlength="8" maxlength="128" autocomplete="current-password" required>
+        </div>
+        <div id="loginMessage" class="form-message error" role="alert" hidden></div>
+        <button class="button btn-primary" type="submit">登入</button>
+      </form>
+      <form class="auth-form" id="registerForm" hidden>
+        <div class="field">
+          <label for="registerUsername">帳號</label>
+          <input type="text" id="registerUsername" minlength="3" maxlength="50" pattern="[A-Za-z0-9_.-]{3,50}" autocomplete="username" required>
+          <p class="field-hint">3–50 個英數字、底線、句點或連字號</p>
+        </div>
+        <div class="field">
+          <label for="registerPassword">密碼</label>
+          <input type="password" id="registerPassword" minlength="8" maxlength="128" autocomplete="new-password" required>
+          <p class="field-hint">至少 8 個字元</p>
+        </div>
+        <div class="field">
+          <label for="registerRole">帳號角色</label>
+          <select id="registerRole">
+            <option value="author">作者</option>
+            <option value="editor">編輯</option>
+          </select>
+        </div>
+        <div class="field" id="editorCodeField" hidden>
+          <label for="editorCode">編輯註冊碼</label>
+          <input type="password" id="editorCode" autocomplete="off">
+          <p class="field-hint">請向系統管理者索取；未設定註冊碼時無法註冊編輯帳號。</p>
+        </div>
+        <div id="registerMessage" class="form-message error" role="alert" hidden></div>
+        <button class="button btn-primary" type="submit">建立帳號</button>
+      </form>
+      <p class="auth-footnote">編輯帳號需提供管理者設定的註冊碼；一般註冊預設為作者。</p>
+    </section>
+    <div id="appContent" hidden>
+    <header class="page-header">
+      <div class="brand-mark" aria-hidden="true">MS</div>
+      <div>
+        <p class="eyebrow">MANUSCRIPT WORKSPACE</p>
+        <h1>投稿審查系統</h1>
+        <p class="page-description">集中管理投稿內容、附件與審查進度。</p>
+      </div>
+      <div class="session-controls">
+        <span class="session-name" id="sessionName"></span>
+        <button class="button btn-secondary" type="button" id="logoutButton">登出</button>
+      </div>
+    </header>
 
-  <h1>投稿審查系統</h1>
+    <nav class="nav-tabs" role="tablist" aria-label="工作區切換">
+      <button class="tab-btn active" id="btnTabAuthor" type="button" role="tab" aria-selected="true" aria-controls="authorSection" onclick="switchRole('author')">作者專區</button>
+      <button class="tab-btn" id="btnTabEditor" type="button" role="tab" aria-selected="false" aria-controls="editorSection" onclick="switchRole('editor')">編輯審查專區</button>
+    </nav>
 
-  <div class="nav-tabs">
-    <button class="tab-btn active" id="btnTabAuthor" onclick="switchRole('author')">✍️ 作者專區</button>
-    <button class="tab-btn" id="btnTabEditor" onclick="switchRole('editor')">🔍 編輯審查專區</button>
-  </div>
+    <section id="authorSection" role="tabpanel" aria-labelledby="btnTabAuthor">
+      <nav class="workspace-tabs" aria-label="作者工作區">
+        <button class="workspace-tab" id="btnAuthorCompose" type="button">新增投稿</button>
+        <button class="workspace-tab active" id="btnAuthorList" type="button" aria-current="page">我的稿件</button>
+      </nav>
 
-  <!-- ==================== 作者視角 ==================== -->
-  <div id="authorSection">
-    <div class="card">
-      <h3>撰寫新投稿 / 編輯草稿</h3>
-      <input type="hidden" id="editArtId">
-      <label>作者名稱：</label>
-      <input type="text" id="authorName" value="劉采蓁">
-      <label>稿件類別：</label>
-      <input type="text" id="category" placeholder="例如：資訊管理 / 軟體工程">
-      <label>稿件標題：</label>
-      <input type="text" id="artTitle" placeholder="請輸入標題">
-      <label>文章內容：</label>
-      <textarea id="artContent" rows="5" placeholder="請輸入文章詳細內容"></textarea>
-      
-      <button class="btn-primary" id="btnSave" onclick="saveArticle()">儲存草稿 (新增/編輯)</button>
-      <button class="btn-secondary" onclick="resetForm()">重設表單</button>
+      <section id="authorListView">
+        <div class="view-heading">
+          <div>
+            <h2>我的稿件</h2>
+            <p>查看稿件狀態、內容與附件。</p>
+          </div>
+        </div>
+        <div id="authorArticleList" class="loading-state">正在載入稿件…</div>
+      </section>
+
+      <section id="authorComposeView" hidden>
+        <div class="view-heading">
+          <div>
+            <h2 id="composeHeading">新增投稿</h2>
+            <p>填寫稿件資料並儲存為草稿，之後可再送出審查。</p>
+          </div>
+        </div>
+        <form class="panel" id="articleForm">
+          <input type="hidden" id="editArtId">
+          <div class="form-grid">
+            <div class="field">
+              <label for="authorName">作者名稱</label>
+              <input type="text" id="authorName" maxlength="100" autocomplete="name" readonly>
+            </div>
+            <div class="field">
+              <label for="category">稿件類別 <span class="required-mark">*</span></label>
+              <input type="text" id="category" maxlength="50" placeholder="例如：歷史類 / 資訊類" required>
+            </div>
+            <div class="field field-full">
+              <label for="artTitle">稿件標題 <span class="required-mark">*</span></label>
+              <input type="text" id="artTitle" maxlength="255" placeholder="請輸入標題" required>
+            </div>
+            <div class="field field-full">
+              <label for="artContent">文章內容 <span class="required-mark">*</span></label>
+              <textarea id="artContent" rows="6" placeholder="請輸入文章內容或大綱" required></textarea>
+            </div>
+            <div class="field field-full">
+              <span class="field-label">稿件附件</span>
+              <div class="dropzone" id="dropzone">
+                <span class="upload-symbol" aria-hidden="true">↑</span>
+                <p class="dropzone-title">將文件拖放到這裡</p>
+                <p class="dropzone-help">支援 PDF、Word、ODT、RTF、TXT；最多 5 個檔案，單檔上限 20 MB</p>
+                <input class="visually-hidden" type="file" id="attachmentInput" accept=".pdf,.doc,.docx,.odt,.rtf,.txt" multiple aria-label="選取稿件附件">
+                <button class="button btn-secondary" type="button" id="chooseFiles">選擇檔案</button>
+              </div>
+              <ul class="file-list" id="selectedFiles" aria-live="polite"></ul>
+              <p class="field-hint">可以移除已選檔案後重新選取，也可以再次選取同一個檔案。</p>
+            </div>
+          </div>
+          <div id="formMessage" class="form-message" role="status" hidden></div>
+          <div class="form-actions">
+            <button class="button btn-primary" id="btnSave" type="submit">儲存草稿</button>
+            <button class="button btn-secondary" type="button" id="btnReset" onclick="resetForm()">清空表單</button>
+          </div>
+        </form>
+      </section>
+    </section>
+
+    <section id="editorSection" role="tabpanel" aria-labelledby="btnTabEditor" hidden>
+      <div class="list-heading">
+        <div>
+          <h2>編輯審查</h2>
+          <p>查看待審稿件與已通過稿件，並下載投稿附件</p>
+        </div>
+      </div>
+      <div id="editorPendingList" class="loading-state">正在載入稿件…</div>
+    </section>
+
+    <footer class="page-footer">投稿審查系統 · 稿件與附件請依規範妥善管理</footer>
     </div>
-
-    <h2>我的投稿稿件清單</h2>
-    <div id="authorArticleList">載入中...</div>
-  </div>
-
-  <!-- ==================== 編輯視角 ==================== -->
-  <div id="editorSection" style="display: none;">
-    <h2>待審查稿件清單</h2>
-    <div id="editorPendingList">載入中...</div>
-  </div>
+  </main>
 
   <script>
-    function switchRole(role) {
-      if (role === 'author') {
-        document.getElementById('authorSection').style.display = 'block';
-        document.getElementById('editorSection').style.display = 'none';
-        document.getElementById('btnTabAuthor').classList.add('active');
-        document.getElementById('btnTabEditor').classList.remove('active');
+    const pendingFiles = [];
+    const allowedExtensions = new Set(['doc', 'docx', 'odt', 'pdf', 'rtf', 'txt']);
+    const maxFileSize = 20 * 1024 * 1024;
+    const maxFiles = 5;
+    let activeUser = null;
+
+    async function apiRequest(url, options) {
+      const response = await fetch(url, options);
+      const body = await response.text();
+      let data;
+      try {
+        data = body ? JSON.parse(body) : {};
+      } catch {
+        throw new Error(`伺服器回應無法解析（HTTP ${response.status}）。`);
+      }
+      if (response.status === 401 && !url.startsWith('/api/auth/')) {
+        showAuthentication();
+      }
+      if (!response.ok) throw new Error(data.detail || data.message || '操作失敗，請稍後再試。');
+      return data;
+    }
+
+    function showAuthentication() {
+      activeUser = null;
+      document.getElementById('authSection').hidden = false;
+      document.getElementById('appContent').hidden = true;
+    }
+
+    function showApplication(user) {
+      activeUser = user;
+      document.getElementById('authSection').hidden = true;
+      document.getElementById('appContent').hidden = false;
+      document.getElementById('sessionName').textContent =
+        `${user.display_name} · ${user.role === 'editor' ? '編輯' : '作者'}`;
+      document.getElementById('authorName').value = user.display_name;
+      const isAuthor = user.role === 'author';
+      document.getElementById('btnTabAuthor').hidden = !isAuthor;
+      document.getElementById('btnTabEditor').hidden = isAuthor;
+      document.getElementById('authorSection').hidden = !isAuthor;
+      document.getElementById('editorSection').hidden = isAuthor;
+      document.getElementById('btnTabAuthor').classList.toggle('active', isAuthor);
+      document.getElementById('btnTabEditor').classList.toggle('active', !isAuthor);
+      document.getElementById('btnTabAuthor').setAttribute('aria-selected', String(isAuthor));
+      document.getElementById('btnTabEditor').setAttribute('aria-selected', String(!isAuthor));
+      if (isAuthor) {
+        switchAuthorView('list');
         loadAuthorArticles();
       } else {
-        document.getElementById('authorSection').style.display = 'none';
-        document.getElementById('editorSection').style.display = 'block';
-        document.getElementById('btnTabAuthor').classList.remove('active');
-        document.getElementById('btnTabEditor').classList.add('active');
         loadPendingArticles();
       }
     }
 
-    // ---------- 作者功能 ----------
+    function switchAuthorView(view) {
+      const showList = view === 'list';
+      document.getElementById('authorListView').hidden = !showList;
+      document.getElementById('authorComposeView').hidden = showList;
+      document.getElementById('btnAuthorList').classList.toggle('active', showList);
+      document.getElementById('btnAuthorCompose').classList.toggle('active', !showList);
+      document.getElementById('btnAuthorList').toggleAttribute('aria-current', showList);
+      document.getElementById('btnAuthorCompose').toggleAttribute('aria-current', !showList);
+    }
+
+    function setAuthMode(mode) {
+      const isLogin = mode === 'login';
+      document.getElementById('loginForm').hidden = !isLogin;
+      document.getElementById('registerForm').hidden = isLogin;
+      document.getElementById('authTitle').textContent = isLogin ? '登入投稿審查系統' : '建立新帳號';
+      document.getElementById('loginModeButton').classList.toggle('active', isLogin);
+      document.getElementById('registerModeButton').classList.toggle('active', !isLogin);
+      document.getElementById('loginModeButton').setAttribute('aria-selected', String(isLogin));
+      document.getElementById('registerModeButton').setAttribute('aria-selected', String(!isLogin));
+    }
+
+    function setAuthMessage(formId, message) {
+      const element = document.getElementById(formId === 'loginForm' ? 'loginMessage' : 'registerMessage');
+      element.textContent = message;
+      element.hidden = !message;
+    }
+
+    async function initializeSession() {
+      try {
+        const data = await apiRequest('/api/auth/me');
+        showApplication(data.user);
+      } catch {
+        showAuthentication();
+      }
+    }
+
+    function showFormMessage(message, type) {
+      const element = document.getElementById('formMessage');
+      element.textContent = message;
+      element.className = `form-message ${type}`;
+      element.hidden = !message;
+    }
+
+    function switchRole(role) {
+      const isAuthor = role === 'author';
+      document.getElementById('authorSection').hidden = !isAuthor;
+      document.getElementById('editorSection').hidden = isAuthor;
+      document.getElementById('btnTabAuthor').classList.toggle('active', isAuthor);
+      document.getElementById('btnTabEditor').classList.toggle('active', !isAuthor);
+      document.getElementById('btnTabAuthor').setAttribute('aria-selected', String(isAuthor));
+      document.getElementById('btnTabEditor').setAttribute('aria-selected', String(!isAuthor));
+      if (isAuthor) {
+        loadAuthorArticles();
+      } else {
+        loadPendingArticles();
+      }
+    }
+
     async function loadAuthorArticles() {
       const author = document.getElementById('authorName').value.trim();
       if (!author) return;
 
-      const res = await fetch(`/api/articles/author/${author}`);
-      const list = await res.json();
       const container = document.getElementById('authorArticleList');
-      renderCategoryList(container, list, 'author');
+      container.className = 'loading-state';
+      container.textContent = '正在載入稿件…';
+      try {
+        const list = await apiRequest('/api/articles/mine');
+        renderCategoryList(container, list, 'author');
+      } catch (error) {
+        container.textContent = `稿件載入失敗：${error.message}`;
+      }
     }
 
     function escapeHtml(value) {
@@ -134,18 +437,19 @@
     }
 
     function getStatusCategory(article, role) {
-      if (article.status === '審查中') return role === 'editor' ? '待審查' : '已審查';
+      if (article.status === '審查中') return role === 'editor' ? '待審查' : '審查中';
       return article.status || '其他';
     }
 
     function renderCategoryList(container, articles, role) {
       container.innerHTML = '';
+      container.className = '';
       if (articles.length === 0) {
-        container.innerHTML = role === 'author' ? '<p>目前尚無投稿紀錄。</p>' : '<p>目前沒有待審查或已通過稿件。</p>';
+        container.innerHTML = `<p class="empty-state">${role === 'author' ? '目前尚無投稿紀錄。建立第一篇草稿後，稿件會顯示在這裡。' : '目前沒有待審查或已通過稿件。'}</p>`;
         return;
       }
 
-      const categoryNames = role === 'author' ? ['編輯中', '已審查', '已通過'] : ['待審查', '已通過'];
+      const categoryNames = role === 'author' ? ['編輯中', '審查中', '已通過'] : ['待審查', '已通過'];
       const buttons = document.createElement('div');
       buttons.className = 'category-list';
 
@@ -165,7 +469,7 @@
       const documents = articles.filter(item => getStatusCategory(item, role) === category);
       container.innerHTML = `
         <div class="category-header">
-          <button class="btn-secondary" type="button">返回分類</button>
+          <button class="button btn-secondary" type="button">返回分類</button>
           <h3>${escapeHtml(category)}</h3>
         </div>
       `;
@@ -178,18 +482,20 @@
           const badgeClass = item.status === '編輯中' ? 'badge-draft' : (item.status === '審查中' ? 'badge-review' : 'badge-pass');
           card.innerHTML = `
             <div class="article-heading">
-              <h4>${escapeHtml(item.title)}</h4>
-              <span class="badge ${badgeClass}">${escapeHtml(getStatusCategory(item))}</span>
+              <div><h4>${escapeHtml(item.title)}</h4><p class="article-meta">${escapeHtml(item.category || '未分類')}</p></div>
+              <span class="badge ${badgeClass}">${escapeHtml(getStatusCategory(item, role))}</span>
             </div>
-            <p style="white-space: pre-wrap;">${escapeHtml(item.content)}</p>
-            <div>
+            <p class="article-content">${escapeHtml(item.content)}</p>
+            <div class="attachment-block"><p class="attachment-title">稿件附件</p><div class="attachment-list" data-article-id="${item.id}">正在載入附件…</div></div>
+            <div class="article-actions">
               ${item.status === '編輯中' ? `
-                <button class="btn-warning" data-action="edit">編輯</button>
-                <button class="btn-danger" data-action="delete">刪除</button>
-                <button class="btn-success" data-action="submit">送出投稿</button>
-              ` : '<small style="color:#666;">稿件已進入審查流轉程序，無法修改或刪除。</small>'}
+                <button class="button btn-warning" type="button" data-action="edit">編輯草稿</button>
+                <button class="button btn-danger" type="button" data-action="delete">刪除草稿</button>
+                <button class="button btn-success" type="button" data-action="submit">送出投稿</button>
+              ` : '<small class="article-note">稿件已進入審查流程，無法修改或刪除。</small>'}
             </div>
           `;
+          loadAttachmentList(item.id, card.querySelector('.attachment-list'), item.status === '編輯中');
           card.querySelector('[data-action="edit"]')?.addEventListener('click', () => setupEdit(item));
           card.querySelector('[data-action="delete"]')?.addEventListener('click', () => deleteArticle(item.id));
           card.querySelector('[data-action="submit"]')?.addEventListener('click', () => submitArticle(item.id));
@@ -197,18 +503,20 @@
           const isPending = item.status === '審查中';
           card.innerHTML = `
             <div class="article-heading">
-              <h4>${escapeHtml(item.title)}</h4>
+              <div><h4>${escapeHtml(item.title)}</h4><p class="article-meta">${escapeHtml(item.category || '未分類')}</p></div>
               <span class="badge ${isPending ? 'badge-review' : 'badge-pass'}">${escapeHtml(getStatusCategory(item, role))}</span>
             </div>
-            <p><strong>作者：</strong>${escapeHtml(item.author_name)}</p>
-            <p style="background: #f1f3f5; padding: 10px; border-radius: 4px; white-space: pre-wrap;">${escapeHtml(item.content)}</p>
-            <div>
+            <p class="article-meta">作者：${escapeHtml(item.author_name)}</p>
+            <p class="article-content">${escapeHtml(item.content)}</p>
+            <div class="attachment-block"><p class="attachment-title">稿件附件</p><div class="attachment-list" data-article-id="${item.id}">正在載入附件…</div></div>
+            <div class="article-actions">
               ${isPending ? `
-                <button class="btn-success" data-action="approve">通過</button>
-                <button class="btn-danger" data-action="reject">退回稿件</button>
-              ` : '<small style="color:#666;">稿件已審查通過。</small>'}
+                <button class="button btn-success" type="button" data-action="approve">審查通過</button>
+                <button class="button btn-danger" type="button" data-action="reject">退回稿件</button>
+              ` : '<small class="article-note">稿件已審查通過。</small>'}
             </div>
           `;
+          loadAttachmentList(item.id, card.querySelector('.attachment-list'), false);
           card.querySelector('[data-action="approve"]')?.addEventListener('click', () => approveArticle(item.id));
           card.querySelector('[data-action="reject"]')?.addEventListener('click', () => rejectArticle(item.id));
         }
@@ -216,36 +524,146 @@
       });
     }
 
-    async function saveArticle() {
+    function formatFileSize(size) {
+      return size < 1024 * 1024 ? `${Math.max(1, Math.round(size / 1024))} KB` : `${(size / (1024 * 1024)).toFixed(1)} MB`;
+    }
+
+    function renderSelectedFiles() {
+      const list = document.getElementById('selectedFiles');
+      list.innerHTML = '';
+      pendingFiles.forEach((file, index) => {
+        const row = document.createElement('li');
+        row.className = 'file-row';
+        const extension = file.name.split('.').pop() || 'FILE';
+        row.innerHTML = `<span class="file-icon">${escapeHtml(extension.slice(0, 4))}</span><span class="file-details"><span class="file-name"></span><span class="file-size">${formatFileSize(file.size)}</span></span><button class="file-remove" type="button" aria-label="移除 ${escapeHtml(file.name)}">移除</button>`;
+        row.querySelector('.file-name').textContent = file.name;
+        row.querySelector('.file-remove').addEventListener('click', () => {
+          pendingFiles.splice(index, 1);
+          renderSelectedFiles();
+        });
+        list.appendChild(row);
+      });
+    }
+
+    function addFiles(files) {
+      let message = '';
+      for (const file of files) {
+        const extension = file.name.split('.').pop().toLowerCase();
+        if (!allowedExtensions.has(extension)) {
+          message = `${file.name}：不支援此檔案格式。`;
+          continue;
+        }
+        if (file.size > maxFileSize) {
+          message = `${file.name}：單一檔案大小不可超過 20 MB。`;
+          continue;
+        }
+        if (pendingFiles.length >= maxFiles) {
+          message = '每篇稿件最多可上傳 5 個檔案。';
+          break;
+        }
+        const isDuplicate = pendingFiles.some(item => item.name === file.name && item.size === file.size && item.lastModified === file.lastModified);
+        if (!isDuplicate) pendingFiles.push(file);
+      }
+      renderSelectedFiles();
+      if (message) showFormMessage(message, 'error');
+      else if (pendingFiles.length) showFormMessage('', '');
+    }
+
+    async function uploadPendingFiles(articleId) {
+      while (pendingFiles.length) {
+        const file = pendingFiles[0];
+        await apiRequest(`/api/articles/${articleId}/attachments?filename=${encodeURIComponent(file.name)}`, {
+          method: 'POST',
+          headers: { 'Content-Type': file.type || 'application/octet-stream' },
+          body: file
+        });
+        pendingFiles.shift();
+        renderSelectedFiles();
+      }
+    }
+
+    async function loadAttachmentList(articleId, container, canRemove) {
+      try {
+        const attachments = await apiRequest(`/api/articles/${articleId}/attachments`);
+        container.innerHTML = '';
+        if (!attachments.length) {
+          container.innerHTML = '<span class="article-note">尚未上傳附件</span>';
+          return;
+        }
+        attachments.forEach(attachment => {
+          const row = document.createElement('div');
+          row.className = 'attachment-row';
+          const link = document.createElement('a');
+          link.href = `/api/attachments/${attachment.id}`;
+          link.textContent = `${attachment.original_name} · ${formatFileSize(attachment.file_size)}`;
+          link.setAttribute('download', attachment.original_name);
+          row.appendChild(link);
+          if (canRemove) {
+            const remove = document.createElement('button');
+            remove.className = 'file-remove';
+            remove.type = 'button';
+            remove.textContent = '移除';
+            remove.setAttribute('aria-label', `移除附件 ${attachment.original_name}`);
+            remove.addEventListener('click', async () => {
+              if (!confirm(`確定移除附件「${attachment.original_name}」嗎？`)) return;
+              try {
+                await apiRequest(`/api/attachments/${attachment.id}`, { method: 'DELETE' });
+                await loadAttachmentList(articleId, container, canRemove);
+              } catch (error) {
+                alert(error.message);
+              }
+            });
+            row.appendChild(remove);
+          }
+          container.appendChild(row);
+        });
+      } catch (error) {
+        container.textContent = `附件載入失敗：${error.message}`;
+      }
+    }
+
+    async function saveArticle(event) {
+      event.preventDefault();
       const id = document.getElementById('editArtId').value;
-      const author_name = document.getElementById('authorName').value.trim();
       const category = document.getElementById('category').value.trim();
       const title = document.getElementById('artTitle').value.trim();
       const content = document.getElementById('artContent').value.trim();
 
-      if (!author_name || !category || !title || !content) return alert('請完整填寫所有欄位！');
-
-      if (id) {
-        // 編輯草稿
-        const res = await fetch(`/api/articles/${id}`, {
-          method: 'PUT',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ category, title, content })
-        });
-        const data = await res.json();
-        alert(res.ok ? data.message : data.detail);
-      } else {
-        // 新增草稿
-        const res = await fetch('/api/articles', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ author_name, category, title, content })
-        });
-        const data = await res.json();
-        alert(res.ok ? data.message : data.detail);
+      if (!category || !title || !content) {
+        showFormMessage('請完整填寫所有必填欄位。', 'error');
+        return;
       }
-      resetForm();
-      loadAuthorArticles();
+      const saveButton = document.getElementById('btnSave');
+      saveButton.disabled = true;
+      try {
+        let articleId = id;
+        let result;
+        if (id) {
+          result = await apiRequest(`/api/articles/${id}`, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ category, title, content })
+          });
+        } else {
+          result = await apiRequest('/api/articles', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ category, title, content })
+          });
+          articleId = result.id;
+          document.getElementById('editArtId').value = articleId;
+          document.getElementById('btnSave').textContent = '儲存修改';
+        }
+        await uploadPendingFiles(articleId);
+        resetForm();
+        switchAuthorView('list');
+        await loadAuthorArticles();
+      } catch (error) {
+        const retryHint = document.getElementById('editArtId').value ? '草稿資料仍保留，請確認後重試。' : '';
+        showFormMessage(`儲存未完成：${error.message}${retryHint ? ` ${retryHint}` : ''}`, 'error');
+      } finally {
+        saveButton.disabled = false;
+      }
     }
 
     function setupEdit(item) {
@@ -253,7 +671,11 @@
       document.getElementById('category').value = item.category;
       document.getElementById('artTitle').value = item.title;
       document.getElementById('artContent').value = item.content;
-      document.getElementById('btnSave').innerText = '儲存修改';
+      document.getElementById('btnSave').textContent = '儲存修改';
+      document.getElementById('composeHeading').textContent = '編輯草稿';
+      showFormMessage('', '');
+      switchAuthorView('compose');
+      document.getElementById('articleForm').scrollIntoView({ behavior: 'smooth', block: 'start' });
     }
 
     function resetForm() {
@@ -261,51 +683,148 @@
       document.getElementById('category').value = '';
       document.getElementById('artTitle').value = '';
       document.getElementById('artContent').value = '';
-      document.getElementById('btnSave').innerText = '儲存草稿 (新增/編輯)';
+      document.getElementById('attachmentInput').value = '';
+      pendingFiles.length = 0;
+      renderSelectedFiles();
+      document.getElementById('btnSave').textContent = '儲存草稿';
+      document.getElementById('composeHeading').textContent = '新增投稿';
+      showFormMessage('', '');
     }
 
     async function deleteArticle(id) {
       if (!confirm('確定要刪除這篇草稿嗎？')) return;
-      const res = await fetch(`/api/articles/${id}`, { method: 'DELETE' });
-      const data = await res.json();
-      alert(data.message || data.detail);
-      loadAuthorArticles();
+      try {
+        const data = await apiRequest(`/api/articles/${id}`, { method: 'DELETE' });
+        if (document.getElementById('editArtId').value === String(id)) resetForm();
+        alert(data.message);
+        await loadAuthorArticles();
+      } catch (error) {
+        alert(error.message);
+      }
     }
 
     async function submitArticle(id) {
       if (!confirm('送出投稿後將進入審查階段，確定送出嗎？')) return;
-      const res = await fetch(`/api/articles/${id}/submit`, { method: 'POST' });
-      const data = await res.json();
-      alert(data.message || data.detail);
-      loadAuthorArticles();
+      try {
+        const data = await apiRequest(`/api/articles/${id}/submit`, { method: 'POST' });
+        alert(data.message);
+        await loadAuthorArticles();
+      } catch (error) {
+        alert(error.message);
+      }
     }
 
-    // ---------- 編輯功能 ----------
     async function loadPendingArticles() {
-      const [pendingRes, approvedRes] = await Promise.all([
-        fetch('/api/articles/editor/pending'),
-        fetch('/api/articles/editor/approved')
-      ]);
-      const [pendingList, approvedList] = await Promise.all([pendingRes.json(), approvedRes.json()]);
       const container = document.getElementById('editorPendingList');
-      renderCategoryList(container, [...pendingList, ...approvedList], 'editor');
+      container.className = 'loading-state';
+      container.textContent = '正在載入稿件…';
+      try {
+        const [pendingList, approvedList] = await Promise.all([
+          apiRequest('/api/articles/editor/pending'),
+          apiRequest('/api/articles/editor/approved')
+        ]);
+        renderCategoryList(container, [...pendingList, ...approvedList], 'editor');
+      } catch (error) {
+        container.textContent = `稿件載入失敗：${error.message}`;
+      }
     }
 
     async function approveArticle(id) {
-      const res = await fetch(`/api/articles/${id}/approve`, { method: 'POST' });
-      const data = await res.json();
-      alert(data.message);
-      loadPendingArticles();
+      try {
+        const data = await apiRequest(`/api/articles/${id}/approve`, { method: 'POST' });
+        alert(data.message);
+        await loadPendingArticles();
+      } catch (error) {
+        alert(error.message);
+      }
     }
 
     async function rejectArticle(id) {
-      const res = await fetch(`/api/articles/${id}/reject`, { method: 'POST' });
-      const data = await res.json();
-      alert(data.message);
-      loadPendingArticles();
+      try {
+        const data = await apiRequest(`/api/articles/${id}/reject`, { method: 'POST' });
+        alert(data.message);
+        await loadPendingArticles();
+      } catch (error) {
+        alert(error.message);
+      }
     }
 
-    loadAuthorArticles();
+    document.getElementById('articleForm').addEventListener('submit', saveArticle);
+    document.getElementById('btnAuthorList').addEventListener('click', () => switchAuthorView('list'));
+    document.getElementById('btnAuthorCompose').addEventListener('click', () => {
+      if (!document.getElementById('editArtId').value) resetForm();
+      switchAuthorView('compose');
+    });
+    document.getElementById('loginModeButton').addEventListener('click', () => setAuthMode('login'));
+    document.getElementById('registerModeButton').addEventListener('click', () => setAuthMode('register'));
+    document.getElementById('registerRole').addEventListener('change', event => {
+      const editorField = document.getElementById('editorCodeField');
+      const isEditor = event.target.value === 'editor';
+      editorField.hidden = !isEditor;
+      document.getElementById('editorCode').required = isEditor;
+    });
+    document.getElementById('loginForm').addEventListener('submit', async event => {
+      event.preventDefault();
+      setAuthMessage('loginForm', '');
+      try {
+        const data = await apiRequest('/api/auth/login', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            username: document.getElementById('loginUsername').value,
+            password: document.getElementById('loginPassword').value
+          })
+        });
+        showApplication(data.user);
+      } catch (error) {
+        setAuthMessage('loginForm', error.message);
+      }
+    });
+    document.getElementById('registerForm').addEventListener('submit', async event => {
+      event.preventDefault();
+      setAuthMessage('registerForm', '');
+      try {
+        const data = await apiRequest('/api/auth/register', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            username: document.getElementById('registerUsername').value,
+            password: document.getElementById('registerPassword').value,
+            role: document.getElementById('registerRole').value,
+            editor_code: document.getElementById('editorCode').value
+          })
+        });
+        showApplication(data.user);
+      } catch (error) {
+        setAuthMessage('registerForm', error.message);
+      }
+    });
+    document.getElementById('logoutButton').addEventListener('click', async () => {
+      try {
+        await apiRequest('/api/auth/logout', { method: 'POST' });
+        showAuthentication();
+      } catch (error) {
+        alert(error.message);
+      }
+    });
+    document.getElementById('chooseFiles').addEventListener('click', () => document.getElementById('attachmentInput').click());
+    document.getElementById('attachmentInput').addEventListener('change', event => {
+      addFiles(event.target.files);
+      event.target.value = '';
+    });
+    const dropzone = document.getElementById('dropzone');
+    dropzone.addEventListener('dragover', event => {
+      event.preventDefault();
+      dropzone.classList.add('drag-over');
+    });
+    dropzone.addEventListener('dragleave', () => dropzone.classList.remove('drag-over'));
+    dropzone.addEventListener('drop', event => {
+      event.preventDefault();
+      dropzone.classList.remove('drag-over');
+      addFiles(event.dataTransfer.files);
+    });
+
+    initializeSession();
   </script>
 </body>
 </html>

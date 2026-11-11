@@ -7,33 +7,42 @@ import time
 from contextlib import asynccontextmanager
 from collections.abc import AsyncGenerator
 from typing import Literal
-from fastapi import FastAPI, Depends, HTTPException, Request, Response
+from fastapi import FastAPI, Depends, HTTPException, Request
 from fastapi.responses import FileResponse
 from pydantic import BaseModel
 import psycopg2
 from psycopg2.extras import RealDictCursor
 from pathlib import Path
-import re
 from uuid import uuid4
 
 UPLOAD_DIR = Path(__file__).resolve().parent / "uploads"
 MAX_ATTACHMENT_SIZE = 20 * 1024 * 1024
 MAX_ATTACHMENTS_PER_ARTICLE = 5
 ALLOWED_ATTACHMENT_EXTENSIONS = {".doc", ".docx", ".odt", ".pdf", ".rtf", ".txt"}
-SESSION_COOKIE = "manuscript_session"
 SESSION_MAX_AGE = 60 * 60 * 12
 SESSION_SECRET = os.environ.get("SESSION_SECRET") or secrets.token_urlsafe(32)
 EDITOR_REGISTRATION_CODE = os.environ.get("EDITOR_REGISTRATION_CODE")
 PASSWORD_HASH_N = 2 ** 14
 
-
+# FastAPI 啟動時建立資料表；yield 後開始處理請求。
 @asynccontextmanager
 async def lifespan(_: FastAPI) -> AsyncGenerator[None, None]:
     create_app_tables()
     yield
 
-
+# 將生命週期函式交給 FastAPI 管理應用程式啟動流程。
 app = FastAPI(title="投稿審查系統", lifespan=lifespan)
+
+
+@app.middleware("http")
+async def disable_api_response_caching(request: Request, call_next):
+    # 先讓 FastAPI 處理請求，再檢查回應。
+    response = await call_next(request)
+    # API 回應不允許瀏覽器或代理伺服器快取。
+    if request.url.path.startswith("/api/"):
+        response.headers["Cache-Control"] = "no-store"
+    return response
+
 
 # 資料庫連線配置
 DB_CONFIG = {
@@ -45,9 +54,10 @@ DB_CONFIG = {
 }
 
 def get_connection():
+    # 使用字典格式回傳查詢結果，方便用欄位名稱取值。
     return psycopg2.connect(**DB_CONFIG, cursor_factory=RealDictCursor)
 
-# Request 模型
+# 以下模型定義 API 接收的資料欄位與型別。
 class ArticleCreate(BaseModel):
     category: str
     title: str
@@ -71,6 +81,7 @@ class LoginRequest(BaseModel):
     password: str
 
 
+# 使用隨機鹽值與 scrypt 雜湊密碼，避免以明文儲存。
 def hash_password(password: str, salt: bytes | None = None) -> str:
     salt = salt or secrets.token_bytes(16)
     password_hash = hashlib.scrypt(
@@ -84,6 +95,7 @@ def hash_password(password: str, salt: bytes | None = None) -> str:
     return f"{salt.hex()}:{password_hash.hex()}"
 
 
+# 驗證輸入密碼是否與資料庫中的雜湊值相符。
 def verify_password(password: str, stored_hash: str) -> bool:
     try:
         salt_hex, expected_hash = stored_hash.split(":", 1)
@@ -93,44 +105,39 @@ def verify_password(password: str, stored_hash: str) -> bool:
     return hmac.compare_digest(actual_hash, expected_hash)
 
 
+# 建立含使用者編號、到期時間及簽章的登入權杖。
 def create_session_token(user_id: int) -> str:
-    expires_at = int(time.time()) + SESSION_MAX_AGE
-    payload = base64.urlsafe_b64encode(f"{user_id}:{expires_at}".encode()).decode().rstrip("=")
+    payload = base64.urlsafe_b64encode(
+        f"{user_id}:{int(time.time()) + SESSION_MAX_AGE}".encode()
+    ).decode().rstrip("=")
     signature = hmac.new(SESSION_SECRET.encode(), payload.encode(), hashlib.sha256).hexdigest()
     return f"{payload}.{signature}"
 
 
+# 驗證權杖簽章與有效期限，成功時回傳使用者編號。
 def read_session_user_id(token: str | None) -> int | None:
-    if not token or "." not in token:
-        return None
-    payload, signature = token.rsplit(".", 1)
-    expected_signature = hmac.new(SESSION_SECRET.encode(), payload.encode(), hashlib.sha256).hexdigest()
-    if not hmac.compare_digest(signature, expected_signature):
-        return None
     try:
+        payload, signature = token.rsplit(".", 1)
+        expected_signature = hmac.new(
+            SESSION_SECRET.encode(), payload.encode(), hashlib.sha256
+        ).hexdigest()
+        if not hmac.compare_digest(signature, expected_signature):
+            return None
         decoded = base64.urlsafe_b64decode(payload + "=" * (-len(payload) % 4)).decode()
-        user_id_text, expires_at_text = decoded.split(":", 1)
-        user_id = int(user_id_text)
-        if int(expires_at_text) < int(time.time()):
+        user_id, expires_at = decoded.split(":", 1)
+        user_id = int(user_id)
+        if int(expires_at) < int(time.time()):
             return None
         return user_id
-    except (ValueError, UnicodeDecodeError):
+    except (AttributeError, ValueError, UnicodeDecodeError):
         return None
 
 
-def set_session_cookie(response: Response, user_id: int, request: Request) -> None:
-    response.set_cookie(
-        key=SESSION_COOKIE,
-        value=create_session_token(user_id),
-        max_age=SESSION_MAX_AGE,
-        httponly=True,
-        secure=request.url.scheme == "https",
-        samesite="lax"
-    )
-
-
+# 從 Bearer 權杖取得登入使用者，並確認帳號仍存在。
 def get_current_user(request: Request) -> dict:
-    user_id = read_session_user_id(request.cookies.get(SESSION_COOKIE))
+    authorization = request.headers.get("authorization", "")
+    scheme, separator, token = authorization.partition(" ")
+    user_id = read_session_user_id(token.strip()) if separator and scheme.lower() == "bearer" else None
     if user_id is None:
         raise HTTPException(status_code=401, detail="請先登入。")
     conn = get_connection()
@@ -148,22 +155,26 @@ def get_current_user(request: Request) -> dict:
     return dict(user)
 
 
+# FastAPI 權限依賴：限制端點只供作者使用。
 def require_author(user: dict = Depends(get_current_user)) -> dict:
     if user["role"] != "author":
         raise HTTPException(status_code=403, detail="此功能僅限作者帳號使用。")
     return user
 
 
+# FastAPI 權限依賴：限制端點只供編輯使用。
 def require_editor(user: dict = Depends(get_current_user)) -> dict:
     if user["role"] != "editor":
         raise HTTPException(status_code=403, detail="此功能僅限編輯帳號使用。")
     return user
 
 
+# 附件依稿件編號分資料夾儲存。
 def get_attachment_path(article_id: int, stored_name: str) -> Path:
     return UPLOAD_DIR / str(article_id) / stored_name
 
 
+# 建立使用者、稿件及附件資料表，並補上必要欄位與索引。
 def create_app_tables():
     conn = get_connection()
     try:
@@ -172,12 +183,19 @@ def create_app_tables():
                 """
                 CREATE TABLE IF NOT EXISTS users (
                     id SERIAL PRIMARY KEY,
-                    username VARCHAR(50) NOT NULL UNIQUE,
-                    display_name VARCHAR(100) NOT NULL,
+                    username TEXT NOT NULL UNIQUE,
+                    display_name TEXT NOT NULL,
                     password_hash TEXT NOT NULL,
                     role VARCHAR(10) NOT NULL CHECK (role IN ('author', 'editor')),
                     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
                 );
+                """
+            )
+            cur.execute(
+                """
+                ALTER TABLE users
+                ALTER COLUMN username TYPE TEXT,
+                ALTER COLUMN display_name TYPE TEXT;
                 """
             )
             cur.execute(
@@ -215,30 +233,33 @@ def create_app_tables():
                 );
                 """
             )
+            cur.execute(
+                "CREATE INDEX IF NOT EXISTS idx_article_attachments_article_id ON article_attachments(article_id);"
+            )
         conn.commit()
     finally:
         conn.close()
 
 
+# 網站首頁回傳前端 HTML。
 @app.get("/")
 def read_root():
     return FileResponse("index.html")
 
 
+# 註冊時拒絕空帳密，並驗證編輯註冊碼；成功後回傳登入權杖。
 @app.post("/api/auth/register")
-def register(data: RegisterRequest, request: Request, response: Response):
-    username = data.username.strip().lower()
+def register(data: RegisterRequest):
+    username = data.username
     display_name = username
-    if not re.fullmatch(r"[a-z0-9_.-]{3,50}", username):
-        raise HTTPException(status_code=400, detail="帳號需為 3 至 50 個英數字、底線、句點或連字號。")
-    if len(data.password) < 8 or len(data.password) > 128:
-        raise HTTPException(status_code=400, detail="密碼長度需為 8 至 128 個字元。")
+    if not username or not data.password:
+        raise HTTPException(status_code=400, detail="帳號和密碼不可空白。")
     if data.role == "editor" and (
         not EDITOR_REGISTRATION_CODE
         or not hmac.compare_digest(data.editor_code, EDITOR_REGISTRATION_CODE)
     ):
         raise HTTPException(status_code=403, detail="編輯註冊碼無效或尚未設定。")
-
+#建立資料庫連線，並將新使用者資料寫入 users 資料表；若帳號已存在則回傳衝突錯誤。
     conn = get_connection()
     try:
         with conn.cursor() as cur:
@@ -259,12 +280,12 @@ def register(data: RegisterRequest, request: Request, response: Response):
         conn.close()
 
     user = dict(user)
-    set_session_cookie(response, user["id"], request)
-    return {"user": user}
+    return {"user": user, "access_token": create_session_token(user["id"])}
 
 
+# 驗證帳號密碼，成功後回傳使用者資料及登入權杖。
 @app.post("/api/auth/login")
-def login(data: LoginRequest, request: Request, response: Response):
+def login(data: LoginRequest):
     conn = get_connection()
     try:
         with conn.cursor() as cur:
@@ -274,7 +295,7 @@ def login(data: LoginRequest, request: Request, response: Response):
                 FROM users
                 WHERE username = %s;
                 """,
-                (data.username.strip().lower(),)
+                (data.username,)
             )
             user = cur.fetchone()
     finally:
@@ -282,30 +303,31 @@ def login(data: LoginRequest, request: Request, response: Response):
     if not user or not verify_password(data.password, user["password_hash"]):
         raise HTTPException(status_code=401, detail="帳號或密碼錯誤。")
 
-    set_session_cookie(response, user["id"], request)
     return {
         "user": {
             "id": user["id"],
             "username": user["username"],
             "display_name": user["display_name"],
             "role": user["role"]
-        }
+        },
+        "access_token": create_session_token(user["id"])
     }
 
 
+#重新整理網頁時維持登入狀態
 @app.get("/api/auth/me")
 def get_session_user(user: dict = Depends(get_current_user)):
     return {"user": user}
 
 
+# 登出端點；前端需清除本機保存的權杖。
 @app.post("/api/auth/logout")
-def logout(response: Response):
-    response.delete_cookie(key=SESSION_COOKIE, httponly=True, samesite="lax")
+def logout():
     return {"message": "已安全登出。"}
 
 # ==================== 作者功能 ====================
 
-# 1. 查看作者自己的投稿稿件清單 (編輯中、審查中、已通過)
+# 取得目前作者的投稿及每篇稿件的附件摘要。
 @app.get("/api/articles/mine")
 def get_author_articles(user: dict = Depends(require_author)):
     conn = get_connection()
@@ -313,10 +335,20 @@ def get_author_articles(user: dict = Depends(require_author)):
         with conn.cursor() as cur:
             cur.execute(
                 """
-                SELECT id, category, title, content, status, created_at
+                SELECT articles.id, category, title, content, status, created_at,
+                    COALESCE(attachment_data.attachments, '[]'::json) AS attachments
                 FROM articles
+                LEFT JOIN LATERAL (
+                    SELECT json_agg(json_build_object(
+                        'id', article_attachments.id,
+                        'original_name', original_name,
+                        'file_size', file_size
+                    ) ORDER BY article_attachments.id) AS attachments
+                    FROM article_attachments
+                    WHERE article_attachments.article_id = articles.id
+                ) AS attachment_data ON TRUE
                 WHERE author_user_id = %s
-                ORDER BY id DESC;
+                ORDER BY articles.id DESC;
                 """,
                 (user["id"],)
             )
@@ -324,7 +356,7 @@ def get_author_articles(user: dict = Depends(require_author)):
     finally:
         conn.close()
 
-# 2. 新增投稿 (狀態預設: 編輯中)
+# 建立新稿件，初始狀態為「編輯中」。
 @app.post("/api/articles")
 def create_article(data: ArticleCreate, user: dict = Depends(require_author)):
     conn = get_connection()
@@ -345,7 +377,7 @@ def create_article(data: ArticleCreate, user: dict = Depends(require_author)):
     finally:
         conn.close()
 
-# 3. 編輯投稿 (僅限「編輯中」狀態)
+# 作者只能修改自己的「編輯中」稿件。
 @app.put("/api/articles/{art_id}")
 def update_article(art_id: int, data: ArticleUpdate, user: dict = Depends(require_author)):
     conn = get_connection()
@@ -370,7 +402,7 @@ def update_article(art_id: int, data: ArticleUpdate, user: dict = Depends(requir
     finally:
         conn.close()
 
-# 4. 刪除編輯中稿件 (僅限「編輯中」狀態)
+# 作者只能刪除自己的「編輯中」稿件，並一併移除附件檔案。
 @app.delete("/api/articles/{art_id}")
 def delete_article(art_id: int, user: dict = Depends(require_author)):
     conn = get_connection()
@@ -400,6 +432,7 @@ def delete_article(art_id: int, user: dict = Depends(require_author)):
         conn.close()
 
 
+# 上傳附件：檢查檔名、格式、大小、稿件狀態與數量後儲存檔案及資料。
 @app.post("/api/articles/{art_id}/attachments")
 async def upload_attachment(
     art_id: int,
@@ -481,6 +514,7 @@ async def upload_attachment(
         conn.close()
 
 
+# 列出稿件附件；作者只能看自己的，編輯不能看尚未送出的草稿。
 @app.get("/api/articles/{art_id}/attachments")
 def get_article_attachments(art_id: int, user: dict = Depends(get_current_user)):
     conn = get_connection()
@@ -511,6 +545,7 @@ def get_article_attachments(art_id: int, user: dict = Depends(get_current_user))
         conn.close()
 
 
+# 下載附件前確認使用者有權查看所屬稿件。
 @app.get("/api/attachments/{attachment_id}")
 def download_attachment(attachment_id: int, user: dict = Depends(get_current_user)):
     conn = get_connection()
@@ -542,6 +577,7 @@ def download_attachment(attachment_id: int, user: dict = Depends(get_current_use
     return FileResponse(path, filename=attachment["original_name"])
 
 
+# 作者只能移除自己「編輯中」稿件的附件。
 @app.delete("/api/attachments/{attachment_id}")
 def delete_attachment(attachment_id: int, user: dict = Depends(require_author)):
     conn = get_connection()
@@ -570,7 +606,7 @@ def delete_attachment(attachment_id: int, user: dict = Depends(require_author)):
         conn.close()
 
 
-# 5. 送出投稿 : 編輯中 => 審查中
+# 將作者的「編輯中」稿件送入審查，狀態改為「審查中」。
 @app.post("/api/articles/{art_id}/submit")
 def submit_article(art_id: int, user: dict = Depends(require_author)):
     conn = get_connection()
@@ -595,33 +631,51 @@ def submit_article(art_id: int, user: dict = Depends(require_author)):
 
 # ==================== 編輯功能 ====================
 
-# 6. 查看待審查清單 (作者、類別、標題)
+# 依指定狀態查詢稿件，並附上附件摘要供編輯者查看。
+def query_editor_articles(statuses: list[str]):
+    conn = get_connection()
+    try:
+        with conn.cursor() as cur:
+            cur.execute(
+                """
+                SELECT articles.id, author_name, category, title, content, status,
+                    COALESCE(attachment_data.attachments, '[]'::json) AS attachments
+                FROM articles
+                LEFT JOIN LATERAL (
+                    SELECT json_agg(json_build_object(
+                        'id', article_attachments.id,
+                        'original_name', original_name,
+                        'file_size', file_size
+                    ) ORDER BY article_attachments.id) AS attachments
+                    FROM article_attachments
+                    WHERE article_attachments.article_id = articles.id
+                ) AS attachment_data ON TRUE
+                WHERE articles.status = ANY(%s)
+                ORDER BY articles.id ASC;
+                """,
+                (statuses,)
+            )
+            return cur.fetchall()
+    finally:
+        conn.close()
+
+
+# 編輯者查看審查中的稿件。
 @app.get("/api/articles/editor/pending", dependencies=[Depends(require_editor)])
 def get_pending_articles():
-    conn = get_connection()
-    try:
-        with conn.cursor() as cur:
-            cur.execute(
-                "SELECT id, author_name, category, title, content, status FROM articles WHERE status = '審查中' ORDER BY id ASC;"
-            )
-            return cur.fetchall()
-    finally:
-        conn.close()
+    return query_editor_articles(["審查中"])
 
-# 6. 查看已通過稿件
+# 編輯者查看已通過的稿件。
 @app.get("/api/articles/editor/approved", dependencies=[Depends(require_editor)])
 def get_approved_articles():
-    conn = get_connection()
-    try:
-        with conn.cursor() as cur:
-            cur.execute(
-                "SELECT id, author_name, category, title, content, status FROM articles WHERE status = '已通過' ORDER BY id ASC;"
-            )
-            return cur.fetchall()
-    finally:
-        conn.close()
+    return query_editor_articles(["已通過"])
 
-# 7. 選擇通過 : 審查中 => 已通過
+# 編輯者一次查看審查中及已通過的稿件。
+@app.get("/api/articles/editor", dependencies=[Depends(require_editor)])
+def get_editor_articles():
+    return query_editor_articles(["審查中", "已通過"])
+
+# 將審查中的稿件標記為「已通過」。
 @app.post("/api/articles/{art_id}/approve", dependencies=[Depends(require_editor)])
 def approve_article(art_id: int):
     conn = get_connection()
@@ -633,7 +687,7 @@ def approve_article(art_id: int):
     finally:
         conn.close()
 
-# 8. 退回稿件 : 審查中 => 編輯中
+# 將審查中的稿件退回作者，狀態改回「編輯中」。
 @app.post("/api/articles/{art_id}/reject", dependencies=[Depends(require_editor)])
 def reject_article(art_id: int):
     conn = get_connection()

@@ -2,7 +2,6 @@
 <html lang="zh-TW">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>投稿審查系統</title>
   <style>
     :root {
@@ -58,8 +57,10 @@
     input[readonly] { background: #eee9df; color: var(--muted); }
     [hidden] { display: none !important; }
     .auth-panel { width: min(100%, 520px); margin: clamp(24px, 8vh, 80px) auto; padding: clamp(22px, 5vw, 36px); }
+    .session-loading { margin: clamp(24px, 8vh, 80px) auto; color: var(--muted); text-align: center; }
     .auth-heading { margin-bottom: 22px; }
     .auth-heading h1 { font-size: 25px; }
+    .connection-warning { margin: 0 0 18px; padding: 12px 14px; border: 1px solid #d5bd8e; border-radius: 8px; background: #f5eddd; color: #665239; font-size: 13px; }
     .auth-switch { display: flex; gap: 6px; margin-bottom: 22px; padding: 5px; border-radius: 9px; background: #eee9df; }
     .auth-switch button { flex: 1; padding: 10px; border: 0; border-radius: 7px; background: transparent; color: var(--muted); font-weight: 700; }
     .auth-switch button.active { background: white; color: var(--olive-dark); box-shadow: 0 2px 6px rgba(55,50,41,.08); }
@@ -89,6 +90,15 @@
     .form-message { margin: 0 0 16px; padding: 10px 12px; border-radius: 7px; font-size: 13px; }
     .form-message.error { background: #f8eee8; color: #874a3f; }
     .form-message.success { background: #edf1e8; color: #4d6549; }
+    .app-dialog { width: min(440px, calc(100% - 32px)); padding: 0; overflow: hidden; border: 1px solid var(--line); border-radius: 14px; background: var(--paper); color: var(--ink); box-shadow: 0 22px 70px rgba(43, 39, 31, .24); }
+    .app-dialog::backdrop { background: rgba(43, 39, 31, .42); backdrop-filter: blur(2px); }
+    .app-dialog-content { padding: 26px; }
+    .app-dialog[data-kind="success"] .app-dialog-title { color: var(--green); }
+    .app-dialog[data-kind="warning"] .app-dialog-title { color: var(--amber); }
+    .app-dialog[data-kind="error"] .app-dialog-title { color: var(--red); }
+    .app-dialog-title { margin: 0 0 9px; font-size: 19px; font-weight: 800; }
+    .app-dialog-message { margin: 0; color: #5e5548; font-size: 14px; white-space: pre-wrap; overflow-wrap: anywhere; }
+    .app-dialog-actions { display: flex; justify-content: flex-end; gap: 9px; margin-top: 24px; }
     .form-actions, .article-actions { display: flex; flex-wrap: wrap; gap: 9px; }
     .form-actions { margin-top: 6px; padding-top: 20px; border-top: 1px solid #eee9df; }
     .button { display: inline-flex; align-items: center; justify-content: center; min-height: 40px; padding: 9px 15px; border: 1px solid transparent; border-radius: 7px; font-size: 13px; font-weight: 700; transition: background .16s ease, border-color .16s ease, transform .16s ease; }
@@ -105,16 +115,13 @@
     .list-heading { display: flex; align-items: end; justify-content: space-between; gap: 12px; margin: 34px 0 14px; }
     .list-heading h2 { font-size: 19px; }
     .list-heading p { margin: 0; color: var(--muted); font-size: 12px; }
-    .category-list { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 14px; margin-bottom: 20px; }
-    .category-btn { display: flex; min-height: 124px; flex-direction: column; justify-content: space-between; padding: 20px; border: 1px solid var(--line); border-top: 3px solid var(--olive); border-radius: 10px; background: var(--paper); color: var(--ink); text-align: left; box-shadow: 0 5px 18px rgba(55,50,41,.035); transition: transform .16s ease, box-shadow .16s ease; }
-    .category-btn[data-status="編輯中"] { border-top-color: #8d8777; }
-    .category-btn[data-status="審查中"], .category-btn[data-status="待審查"] { border-top-color: #aa8552; }
-    .category-btn[data-status="已通過"] { border-top-color: var(--green); }
-    .category-btn:hover { transform: translateY(-2px); box-shadow: 0 9px 22px rgba(55,50,41,.08); }
-    .category-name { font-size: 16px; font-weight: 800; }
-    .category-count { color: var(--muted); font-size: 12px; }
-    .category-header { display: flex; align-items: center; gap: 14px; margin: 6px 0 16px; }
-    .category-header h3 { margin: 0; font-size: 18px; }
+    .category-list { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 18px; }
+    .category-btn { display: inline-flex; align-items: center; gap: 8px; min-height: 40px; padding: 8px 13px; border: 1px solid var(--line); border-radius: 999px; background: var(--paper); color: #5c5345; text-align: left; transition: background .16s ease, border-color .16s ease, color .16s ease; }
+    .category-btn:hover { border-color: #bcb09d; background: #f8f5ed; }
+    .category-btn.active { border-color: var(--olive-dark); background: var(--olive-dark); color: #fff; }
+    .category-name { font-size: 13px; font-weight: 800; }
+    .category-count { color: var(--muted); font-size: 11px; }
+    .category-btn.active .category-count { color: #e7e9df; }
     .card { margin-bottom: 12px; padding: 20px; }
     .article-heading { display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; }
     .article-heading h4 { margin: 0; font-size: 17px; line-height: 1.45; }
@@ -133,23 +140,6 @@
     .attachment-row a:hover { text-decoration: underline; }
     .empty-state, .loading-state { padding: 22px; border: 1px dashed var(--line); border-radius: 9px; color: var(--muted); font-size: 13px; text-align: center; }
     .page-footer { margin-top: 36px; color: #968b79; font-size: 11px; text-align: center; }
-    @media (max-width: 700px) {
-      body { padding: 24px 16px 40px; }
-      .page-header { align-items: flex-start; gap: 12px; }
-      .brand-mark { width: 44px; height: 44px; flex-basis: 44px; border-radius: 12px; }
-      .header-pill { display: none; }
-      .nav-tabs { gap: 3px; }
-      .tab-btn { padding: 11px 8px; font-size: 12px; }
-      .view-heading { align-items: flex-start; }
-      .view-heading .button { flex: 0 0 auto; }
-      .form-grid { grid-template-columns: 1fr; }
-      .field-full { grid-column: auto; }
-      .category-list { grid-template-columns: 1fr; gap: 9px; }
-      .category-btn { min-height: 90px; padding: 16px; }
-      .card { padding: 16px; }
-      .article-heading { gap: 8px; }
-      .article-heading h4 { font-size: 15px; }
-    }
     @media (prefers-reduced-motion: reduce) {
       *, *::before, *::after { scroll-behavior: auto !important; transition-duration: .01ms !important; }
     }
@@ -157,7 +147,11 @@
 </head>
 <body>
   <main class="shell">
-    <section class="auth-panel panel" id="authSection">
+    <div class="session-loading" id="sessionLoading" role="status">正在確認登入狀態…</div>
+    <section class="auth-panel panel" id="authSection" hidden>
+      <div class="connection-warning" id="connectionWarning" role="alert" hidden>
+        請不要直接開啟 index.html。請在專案資料夾的 PowerShell 執行 <code>uvicorn main:app --reload</code>，再用瀏覽器開啟 <code>http://127.0.0.1:8000</code>，登入與儲存功能才能連到伺服器。
+      </div>
       <div class="auth-heading">
         <p class="eyebrow">MANUSCRIPT WORKSPACE</p>
         <h1 id="authTitle">登入投稿審查系統</h1>
@@ -170,11 +164,11 @@
       <form class="auth-form" id="loginForm">
         <div class="field">
           <label for="loginUsername">帳號</label>
-          <input type="text" id="loginUsername" minlength="3" maxlength="50" autocomplete="username" required>
+          <input type="text" id="loginUsername" autocomplete="username" required>
         </div>
         <div class="field">
           <label for="loginPassword">密碼</label>
-          <input type="password" id="loginPassword" minlength="8" maxlength="128" autocomplete="current-password" required>
+          <input type="password" id="loginPassword" autocomplete="current-password" required>
         </div>
         <div id="loginMessage" class="form-message error" role="alert" hidden></div>
         <button class="button btn-primary" type="submit">登入</button>
@@ -182,13 +176,11 @@
       <form class="auth-form" id="registerForm" hidden>
         <div class="field">
           <label for="registerUsername">帳號</label>
-          <input type="text" id="registerUsername" minlength="3" maxlength="50" pattern="[A-Za-z0-9_.-]{3,50}" autocomplete="username" required>
-          <p class="field-hint">3–50 個英數字、底線、句點或連字號</p>
+          <input type="text" id="registerUsername" autocomplete="username" required>
         </div>
         <div class="field">
           <label for="registerPassword">密碼</label>
-          <input type="password" id="registerPassword" minlength="8" maxlength="128" autocomplete="new-password" required>
-          <p class="field-hint">至少 8 個字元</p>
+          <input type="password" id="registerPassword" autocomplete="new-password" required>
         </div>
         <div class="field">
           <label for="registerRole">帳號角色</label>
@@ -270,6 +262,10 @@
             </div>
             <div class="field field-full">
               <span class="field-label">稿件附件</span>
+              <div class="attachment-block" id="existingAttachmentSection" hidden>
+                <p class="attachment-title">現有附件</p>
+                <div class="attachment-list" id="existingAttachmentList"></div>
+              </div>
               <div class="dropzone" id="dropzone">
                 <span class="upload-symbol" aria-hidden="true">↑</span>
                 <p class="dropzone-title">將文件拖放到這裡</p>
@@ -278,7 +274,7 @@
                 <button class="button btn-secondary" type="button" id="chooseFiles">選擇檔案</button>
               </div>
               <ul class="file-list" id="selectedFiles" aria-live="polite"></ul>
-              <p class="field-hint">可以移除已選檔案後重新選取，也可以再次選取同一個檔案。</p>
+              <p class="field-hint">儲存草稿至少需要一個附件。可以移除已選檔案後重新選取，也可以再次選取同一個檔案。</p>
             </div>
           </div>
           <div id="formMessage" class="form-message" role="status" hidden></div>
@@ -304,15 +300,84 @@
     </div>
   </main>
 
+  <dialog class="app-dialog" id="appDialog" aria-labelledby="appDialogTitle" aria-describedby="appDialogMessage">
+    <div class="app-dialog-content">
+      <h2 class="app-dialog-title" id="appDialogTitle">提示</h2>
+      <p class="app-dialog-message" id="appDialogMessage"></p>
+      <div class="app-dialog-actions">
+        <button class="button btn-secondary" id="appDialogCancel" type="button">取消</button>
+        <button class="button btn-primary" id="appDialogConfirm" type="button">確定</button>
+      </div>
+    </div>
+  </dialog>
+
   <script>
     const pendingFiles = [];
     const allowedExtensions = new Set(['doc', 'docx', 'odt', 'pdf', 'rtf', 'txt']);
     const maxFileSize = 20 * 1024 * 1024;
     const maxFiles = 5;
+    const accessTokenKey = 'manuscript_access_token';
+    const dialogQueue = [];
+    let existingAttachments = [];
     let activeUser = null;
 
-    async function apiRequest(url, options) {
-      const response = await fetch(url, options);
+    function authenticatedHeaders(headers = {}) {
+      const requestHeaders = new Headers(headers);
+      const accessToken = sessionStorage.getItem(accessTokenKey);
+      if (accessToken) requestHeaders.set('Authorization', `Bearer ${accessToken}`);
+      return requestHeaders;
+    }
+
+    function presentNextDialog() {
+      const dialog = document.getElementById('appDialog');
+      if (dialog.open || dialogQueue.length === 0) return;
+
+      const { options } = dialogQueue[0];
+      const cancelButton = document.getElementById('appDialogCancel');
+      const confirmButton = document.getElementById('appDialogConfirm');
+      dialog.dataset.kind = options.kind || 'info';
+      document.getElementById('appDialogTitle').textContent = options.title || '提示';
+      document.getElementById('appDialogMessage').textContent = String(options.message ?? '');
+      cancelButton.hidden = !options.showCancel;
+      cancelButton.textContent = options.cancelText || '取消';
+      confirmButton.textContent = options.confirmText || '確定';
+      confirmButton.className = options.confirmClass || 'button btn-primary';
+      dialog.showModal();
+    }
+
+    function showDialog(options) {
+      return new Promise(resolve => {
+        dialogQueue.push({ options, resolve });
+        presentNextDialog();
+      });
+    }
+
+    function showNotice(message, options = {}) {
+      return showDialog({ ...options, message, showCancel: false });
+    }
+
+    function showConfirmation(message, options = {}) {
+      return showDialog({ ...options, message, showCancel: true });
+    }
+
+    document.getElementById('appDialogConfirm').addEventListener('click', () => {
+      document.getElementById('appDialog').close('confirm');
+    });
+    document.getElementById('appDialogCancel').addEventListener('click', () => {
+      document.getElementById('appDialog').close('cancel');
+    });
+    document.getElementById('appDialog').addEventListener('close', event => {
+      const current = dialogQueue.shift();
+      current?.resolve(event.target.returnValue === 'confirm');
+      presentNextDialog();
+    });
+
+    async function apiRequest(url, options = {}) {
+      const response = await fetch(url, {
+        ...options,
+        headers: authenticatedHeaders(options.headers),
+        cache: 'no-store'
+      });
       const body = await response.text();
       let data;
       try {
@@ -320,7 +385,8 @@
       } catch {
         throw new Error(`伺服器回應無法解析（HTTP ${response.status}）。`);
       }
-      if (response.status === 401 && !url.startsWith('/api/auth/')) {
+      if (response.status === 401 && !url.startsWith('/api/auth/login') && !url.startsWith('/api/auth/register')) {
+        sessionStorage.removeItem(accessTokenKey);
         showAuthentication();
       }
       if (!response.ok) throw new Error(data.detail || data.message || '操作失敗，請稍後再試。');
@@ -329,12 +395,14 @@
 
     function showAuthentication() {
       activeUser = null;
+      document.getElementById('sessionLoading').hidden = true;
       document.getElementById('authSection').hidden = false;
       document.getElementById('appContent').hidden = true;
     }
 
     function showApplication(user) {
       activeUser = user;
+      document.getElementById('sessionLoading').hidden = true;
       document.getElementById('authSection').hidden = true;
       document.getElementById('appContent').hidden = false;
       document.getElementById('sessionName').textContent =
@@ -385,11 +453,24 @@
     }
 
     async function initializeSession() {
+      if (window.location.protocol === 'file:') {
+        document.getElementById('connectionWarning').hidden = false;
+        showAuthentication();
+        return;
+      }
+      const hadSessionToken = Boolean(sessionStorage.getItem(accessTokenKey));
       try {
+        if (!sessionStorage.getItem(accessTokenKey)) {
+          showAuthentication();
+          return;
+        }
         const data = await apiRequest('/api/auth/me');
         showApplication(data.user);
-      } catch {
+      } catch (error) {
         showAuthentication();
+        if (hadSessionToken && sessionStorage.getItem(accessTokenKey)) {
+          setAuthMessage('loginForm', `無法確認登入狀態：${error.message}`);
+        }
       }
     }
 
@@ -415,7 +496,7 @@
       }
     }
 
-    async function loadAuthorArticles() {
+    async function loadAuthorArticles(openCategory = '編輯中') {
       const author = document.getElementById('authorName').value.trim();
       if (!author) return;
 
@@ -424,7 +505,7 @@
       container.textContent = '正在載入稿件…';
       try {
         const list = await apiRequest('/api/articles/mine');
-        renderCategoryList(container, list, 'author');
+        renderCategoryList(container, list, 'author', openCategory);
       } catch (error) {
         container.textContent = `稿件載入失敗：${error.message}`;
       }
@@ -441,39 +522,50 @@
       return article.status || '其他';
     }
 
-    function renderCategoryList(container, articles, role) {
+    function renderCategoryList(container, articles, role, selectedCategory = null) {
       container.innerHTML = '';
       container.className = '';
-      if (articles.length === 0) {
-        container.innerHTML = `<p class="empty-state">${role === 'author' ? '目前尚無投稿紀錄。建立第一篇草稿後，稿件會顯示在這裡。' : '目前沒有待審查或已通過稿件。'}</p>`;
-        return;
-      }
-
       const categoryNames = role === 'author' ? ['編輯中', '審查中', '已通過'] : ['待審查', '已通過'];
       const buttons = document.createElement('div');
       buttons.className = 'category-list';
+      const documentsContainer = document.createElement('div');
+      documentsContainer.className = 'category-documents';
+      const activeCategory = selectedCategory || categoryNames[0];
 
       categoryNames.forEach(category => {
         const count = articles.filter(item => getStatusCategory(item, role) === category).length;
         const button = document.createElement('button');
         button.className = 'category-btn';
+        button.classList.toggle('active', category === activeCategory);
+        button.setAttribute('aria-pressed', String(category === activeCategory));
         button.dataset.status = category;
-        button.innerHTML = `<span class="category-name">${escapeHtml(category)}</span><span class="category-count">${count} 篇稿件</span>`;
-        button.addEventListener('click', () => renderCategoryDocuments(container, articles, category, role));
+        button.innerHTML = `<span class="category-name">${escapeHtml(category)}</span><span class="category-count">${count} 篇</span>`;
+        button.addEventListener('click', () => {
+          buttons.querySelectorAll('.category-btn').forEach(categoryButton => {
+            const isActive = categoryButton === button;
+            categoryButton.classList.toggle('active', isActive);
+            categoryButton.setAttribute('aria-pressed', String(isActive));
+          });
+          renderCategoryDocuments(documentsContainer, articles, category, role);
+        });
         buttons.appendChild(button);
       });
-      container.appendChild(buttons);
+
+      container.append(buttons, documentsContainer);
+      renderCategoryDocuments(documentsContainer, articles, activeCategory, role);
     }
 
     function renderCategoryDocuments(container, articles, category, role) {
       const documents = articles.filter(item => getStatusCategory(item, role) === category);
-      container.innerHTML = `
-        <div class="category-header">
-          <button class="button btn-secondary" type="button">返回分類</button>
-          <h3>${escapeHtml(category)}</h3>
-        </div>
-      `;
-      container.querySelector('.category-header button').addEventListener('click', () => renderCategoryList(container, articles, role));
+      container.innerHTML = '';
+
+      if (documents.length === 0) {
+        const emptyMessage = role === 'author' && articles.length === 0
+          ? '目前尚無投稿紀錄，請切換至「新增投稿」建立第一篇稿件。'
+          : `目前沒有「${escapeHtml(category)}」的稿件。`;
+        container.innerHTML = `<p class="empty-state">${emptyMessage}</p>`;
+        return;
+      }
 
       documents.forEach(item => {
         const card = document.createElement('div');
@@ -495,7 +587,7 @@
               ` : '<small class="article-note">稿件已進入審查流程，無法修改或刪除。</small>'}
             </div>
           `;
-          loadAttachmentList(item.id, card.querySelector('.attachment-list'), item.status === '編輯中');
+          renderAttachmentList(item.attachments, item.id, card.querySelector('.attachment-list'), false);
           card.querySelector('[data-action="edit"]')?.addEventListener('click', () => setupEdit(item));
           card.querySelector('[data-action="delete"]')?.addEventListener('click', () => deleteArticle(item.id));
           card.querySelector('[data-action="submit"]')?.addEventListener('click', () => submitArticle(item.id));
@@ -516,7 +608,7 @@
               ` : '<small class="article-note">稿件已審查通過。</small>'}
             </div>
           `;
-          loadAttachmentList(item.id, card.querySelector('.attachment-list'), false);
+          renderAttachmentList(item.attachments, item.id, card.querySelector('.attachment-list'), false);
           card.querySelector('[data-action="approve"]')?.addEventListener('click', () => approveArticle(item.id));
           card.querySelector('[data-action="reject"]')?.addEventListener('click', () => rejectArticle(item.id));
         }
@@ -557,7 +649,7 @@
           message = `${file.name}：單一檔案大小不可超過 20 MB。`;
           continue;
         }
-        if (pendingFiles.length >= maxFiles) {
+        if (pendingFiles.length + existingAttachments.length >= maxFiles) {
           message = '每篇稿件最多可上傳 5 個檔案。';
           break;
         }
@@ -572,53 +664,105 @@
     async function uploadPendingFiles(articleId) {
       while (pendingFiles.length) {
         const file = pendingFiles[0];
-        await apiRequest(`/api/articles/${articleId}/attachments?filename=${encodeURIComponent(file.name)}`, {
+        const attachment = await apiRequest(`/api/articles/${articleId}/attachments?filename=${encodeURIComponent(file.name)}`, {
           method: 'POST',
           headers: { 'Content-Type': file.type || 'application/octet-stream' },
           body: file
         });
+        existingAttachments.push(attachment);
         pendingFiles.shift();
         renderSelectedFiles();
       }
     }
 
+    function renderAttachmentList(attachments, articleId, container, canRemove) {
+      container.innerHTML = '';
+      if (!attachments?.length) {
+        container.innerHTML = '<span class="article-note">尚未上傳附件</span>';
+        return;
+      }
+      attachments.forEach(attachment => {
+        const row = document.createElement('div');
+        row.className = 'attachment-row';
+        const link = document.createElement('a');
+        link.href = '#';
+        link.textContent = `${attachment.original_name} · ${formatFileSize(attachment.file_size)}`;
+        link.addEventListener('click', event => {
+          event.preventDefault();
+          downloadAttachment(attachment.id, attachment.original_name);
+        });
+        row.appendChild(link);
+        if (canRemove) {
+          const remove = document.createElement('button');
+          remove.className = 'file-remove';
+          remove.type = 'button';
+          remove.textContent = '移除';
+          remove.setAttribute('aria-label', `移除附件 ${attachment.original_name}`);
+          remove.addEventListener('click', async () => {
+            if (!await showConfirmation(`確定移除附件「${attachment.original_name}」嗎？`, {
+              title: '移除附件',
+              kind: 'warning',
+              confirmText: '移除',
+              confirmClass: 'button btn-danger'
+            })) return;
+            try {
+              await apiRequest(`/api/attachments/${attachment.id}`, { method: 'DELETE' });
+              if (canRemove && document.getElementById('editArtId').value === String(articleId)) {
+                existingAttachments = existingAttachments.filter(item => item.id !== attachment.id);
+              }
+              await loadAttachmentList(articleId, container, canRemove);
+            } catch (error) {
+              await showNotice(error.message, { kind: 'error' });
+            }
+          });
+          row.appendChild(remove);
+        }
+        container.appendChild(row);
+      });
+    }
+
     async function loadAttachmentList(articleId, container, canRemove) {
       try {
         const attachments = await apiRequest(`/api/articles/${articleId}/attachments`);
-        container.innerHTML = '';
-        if (!attachments.length) {
-          container.innerHTML = '<span class="article-note">尚未上傳附件</span>';
-          return;
+        if (canRemove && document.getElementById('editArtId').value === String(articleId)) {
+          existingAttachments = attachments;
         }
-        attachments.forEach(attachment => {
-          const row = document.createElement('div');
-          row.className = 'attachment-row';
-          const link = document.createElement('a');
-          link.href = `/api/attachments/${attachment.id}`;
-          link.textContent = `${attachment.original_name} · ${formatFileSize(attachment.file_size)}`;
-          link.setAttribute('download', attachment.original_name);
-          row.appendChild(link);
-          if (canRemove) {
-            const remove = document.createElement('button');
-            remove.className = 'file-remove';
-            remove.type = 'button';
-            remove.textContent = '移除';
-            remove.setAttribute('aria-label', `移除附件 ${attachment.original_name}`);
-            remove.addEventListener('click', async () => {
-              if (!confirm(`確定移除附件「${attachment.original_name}」嗎？`)) return;
-              try {
-                await apiRequest(`/api/attachments/${attachment.id}`, { method: 'DELETE' });
-                await loadAttachmentList(articleId, container, canRemove);
-              } catch (error) {
-                alert(error.message);
-              }
-            });
-            row.appendChild(remove);
-          }
-          container.appendChild(row);
-        });
+        renderAttachmentList(attachments, articleId, container, canRemove);
       } catch (error) {
         container.textContent = `附件載入失敗：${error.message}`;
+      }
+    }
+
+    async function downloadAttachment(attachmentId, filename) {
+      try {
+        const response = await fetch(`/api/attachments/${attachmentId}`, {
+          headers: authenticatedHeaders(),
+          cache: 'no-store'
+        });
+        if (!response.ok) {
+          let message = '附件下載失敗。';
+          try {
+            const data = await response.json();
+            message = data.detail || data.message || message;
+          } catch {
+            message = `附件下載失敗（HTTP ${response.status}）。`;
+          }
+          if (response.status === 401) {
+            sessionStorage.removeItem(accessTokenKey);
+            showAuthentication();
+          }
+          throw new Error(message);
+        }
+        const downloadUrl = URL.createObjectURL(await response.blob());
+        const downloadLink = document.createElement('a');
+        downloadLink.href = downloadUrl;
+        downloadLink.download = filename;
+        document.body.appendChild(downloadLink);
+        downloadLink.click();
+        downloadLink.remove();
+        window.setTimeout(() => URL.revokeObjectURL(downloadUrl), 1000);
+      } catch (error) {
+        await showNotice(error.message, { kind: 'error' });
       }
     }
 
@@ -631,6 +775,13 @@
 
       if (!category || !title || !content) {
         showFormMessage('請完整填寫所有必填欄位。', 'error');
+        return;
+      }
+      if (existingAttachments.length + pendingFiles.length === 0) {
+        await showNotice('請至少上傳一個稿件附件，才能儲存草稿。', {
+          title: '尚未上傳稿件',
+          kind: 'warning'
+        });
         return;
       }
       const saveButton = document.getElementById('btnSave');
@@ -657,7 +808,7 @@
         await uploadPendingFiles(articleId);
         resetForm();
         switchAuthorView('list');
-        await loadAuthorArticles();
+        await loadAuthorArticles('編輯中');
       } catch (error) {
         const retryHint = document.getElementById('editArtId').value ? '草稿資料仍保留，請確認後重試。' : '';
         showFormMessage(`儲存未完成：${error.message}${retryHint ? ` ${retryHint}` : ''}`, 'error');
@@ -674,6 +825,10 @@
       document.getElementById('btnSave').textContent = '儲存修改';
       document.getElementById('composeHeading').textContent = '編輯草稿';
       showFormMessage('', '');
+      document.getElementById('existingAttachmentSection').hidden = false;
+      const attachmentList = document.getElementById('existingAttachmentList');
+      existingAttachments = item.attachments || [];
+      renderAttachmentList(existingAttachments, item.id, attachmentList, true);
       switchAuthorView('compose');
       document.getElementById('articleForm').scrollIntoView({ behavior: 'smooth', block: 'start' });
     }
@@ -684,6 +839,9 @@
       document.getElementById('artTitle').value = '';
       document.getElementById('artContent').value = '';
       document.getElementById('attachmentInput').value = '';
+      document.getElementById('existingAttachmentSection').hidden = true;
+      document.getElementById('existingAttachmentList').innerHTML = '';
+      existingAttachments = [];
       pendingFiles.length = 0;
       renderSelectedFiles();
       document.getElementById('btnSave').textContent = '儲存草稿';
@@ -692,60 +850,78 @@
     }
 
     async function deleteArticle(id) {
-      if (!confirm('確定要刪除這篇草稿嗎？')) return;
+      if (!await showConfirmation('確定要刪除這篇草稿嗎？', {
+        title: '刪除草稿',
+        kind: 'warning',
+        confirmText: '刪除',
+        confirmClass: 'button btn-danger'
+      })) return;
       try {
         const data = await apiRequest(`/api/articles/${id}`, { method: 'DELETE' });
         if (document.getElementById('editArtId').value === String(id)) resetForm();
-        alert(data.message);
-        await loadAuthorArticles();
+        await showNotice(data.message, { kind: 'success' });
+        await loadAuthorArticles('編輯中');
       } catch (error) {
-        alert(error.message);
+        await showNotice(error.message, { kind: 'error' });
       }
     }
 
     async function submitArticle(id) {
-      if (!confirm('送出投稿後將進入審查階段，確定送出嗎？')) return;
+      if (!await showConfirmation('送出投稿後將進入審查階段，確定送出嗎？', {
+        title: '確認送出投稿',
+        kind: 'warning',
+        confirmText: '送出投稿'
+      })) return;
       try {
         const data = await apiRequest(`/api/articles/${id}/submit`, { method: 'POST' });
-        alert(data.message);
-        await loadAuthorArticles();
+        await showNotice(data.message, { kind: 'success' });
+        await loadAuthorArticles('審查中');
       } catch (error) {
-        alert(error.message);
+        await showNotice(error.message, { kind: 'error' });
       }
     }
 
-    async function loadPendingArticles() {
+    async function loadPendingArticles(openCategory = '待審查') {
       const container = document.getElementById('editorPendingList');
       container.className = 'loading-state';
       container.textContent = '正在載入稿件…';
       try {
-        const [pendingList, approvedList] = await Promise.all([
-          apiRequest('/api/articles/editor/pending'),
-          apiRequest('/api/articles/editor/approved')
-        ]);
-        renderCategoryList(container, [...pendingList, ...approvedList], 'editor');
+        const articles = await apiRequest('/api/articles/editor');
+        renderCategoryList(container, articles, 'editor', openCategory);
       } catch (error) {
         container.textContent = `稿件載入失敗：${error.message}`;
       }
     }
 
     async function approveArticle(id) {
+      if (!await showConfirmation('確定要審查通過這篇稿件嗎？', {
+        title: '確認審查通過',
+        kind: 'warning',
+        confirmText: '審查通過',
+        confirmClass: 'button btn-success'
+      })) return;
       try {
         const data = await apiRequest(`/api/articles/${id}/approve`, { method: 'POST' });
-        alert(data.message);
-        await loadPendingArticles();
+        await showNotice(data.message, { kind: 'success' });
+        await loadPendingArticles('已通過');
       } catch (error) {
-        alert(error.message);
+        await showNotice(error.message, { kind: 'error' });
       }
     }
 
     async function rejectArticle(id) {
+      if (!await showConfirmation('確定要退回這篇稿件嗎？', {
+        title: '確認退回稿件',
+        kind: 'warning',
+        confirmText: '退回稿件',
+        confirmClass: 'button btn-danger'
+      })) return;
       try {
         const data = await apiRequest(`/api/articles/${id}/reject`, { method: 'POST' });
-        alert(data.message);
-        await loadPendingArticles();
+        await showNotice(data.message, { kind: 'success' });
+        await loadPendingArticles('待審查');
       } catch (error) {
-        alert(error.message);
+        await showNotice(error.message, { kind: 'error' });
       }
     }
 
@@ -775,6 +951,7 @@
             password: document.getElementById('loginPassword').value
           })
         });
+        sessionStorage.setItem(accessTokenKey, data.access_token);
         showApplication(data.user);
       } catch (error) {
         setAuthMessage('loginForm', error.message);
@@ -794,18 +971,15 @@
             editor_code: document.getElementById('editorCode').value
           })
         });
+        sessionStorage.setItem(accessTokenKey, data.access_token);
         showApplication(data.user);
       } catch (error) {
         setAuthMessage('registerForm', error.message);
       }
     });
     document.getElementById('logoutButton').addEventListener('click', async () => {
-      try {
-        await apiRequest('/api/auth/logout', { method: 'POST' });
-        showAuthentication();
-      } catch (error) {
-        alert(error.message);
-      }
+      sessionStorage.removeItem(accessTokenKey);
+      showAuthentication();
     });
     document.getElementById('chooseFiles').addEventListener('click', () => document.getElementById('attachmentInput').click());
     document.getElementById('attachmentInput').addEventListener('change', event => {

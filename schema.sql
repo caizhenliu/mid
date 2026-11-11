@@ -1,7 +1,7 @@
 CREATE TABLE IF NOT EXISTS users (
     id SERIAL PRIMARY KEY,
-    username VARCHAR(50) NOT NULL UNIQUE,
-    display_name VARCHAR(100) NOT NULL,
+    username TEXT NOT NULL UNIQUE,
+    display_name TEXT NOT NULL,
     password_hash TEXT NOT NULL,
     role VARCHAR(10) NOT NULL CHECK (role IN ('author', 'editor')),
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
@@ -32,3 +32,5 @@ CREATE TABLE IF NOT EXISTS article_attachments (
     file_size BIGINT NOT NULL,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
+
+CREATE INDEX IF NOT EXISTS idx_article_attachments_article_id ON article_attachments(article_id);

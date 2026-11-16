@@ -1,1 +1,2 @@
  uvicorn main:app --reload
+$env:EDITOR_REGISTRATION_CODE="010030"
